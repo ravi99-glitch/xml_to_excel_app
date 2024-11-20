@@ -2,20 +2,24 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import streamlit as st
 import openpyxl
+import os
+
 
 def extract_xml_data_to_df(xml_file):
     """
     Extract relevant data from an XML document and return it as a Pandas DataFrame.
     """
+    # XML-Datei laden und Namespace extrahieren
     tree = ET.parse(xml_file)
     root = tree.getroot()
     namespace = root.tag.split('}')[0].strip('{')
 
+    # Daten initialisieren
     data = {
         "Zahlungsdatum": None,
         "Betrag": None,
         "Debitor Name": None,
-        "Straße": None,
+        "Strasse": None,  # "Straße" zu "Strasse" geändert
         "Hausnummer": None,
         "Postleitzahl": None,
         "Stadt": None,
@@ -24,47 +28,50 @@ def extract_xml_data_to_df(xml_file):
         "Adresse": None
     }
 
-    # FrDtTm (Zahlungsdatum)
+    # Zahlungsdatum extrahieren
     fr_dt_tm = root.find(f'.//{{{namespace}}}FrDtTm')
     if fr_dt_tm is not None:
-        data["Zahlungsdatum"] = pd.to_datetime(fr_dt_tm.text).strftime('%d-%m-%Y %H:%M:%S')
+        try:
+            data["Zahlungsdatum"] = pd.to_datetime(fr_dt_tm.text).strftime('%d-%m-%Y %H:%M:%S')
+        except ValueError:
+            data["Zahlungsdatum"] = fr_dt_tm.text
 
-    # TxAmt (Betrag)
+    # Betrag extrahieren
     tx_amt = root.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
     if tx_amt is not None:
         data["Betrag"] = tx_amt.text
 
-    # Debitor Name
+    # Debitor Name extrahieren
     dbtr_name = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}Nm')
     if dbtr_name is not None:
         data["Debitor Name"] = dbtr_name.text
 
-    # Strasse
+    # Strasse extrahieren
     dbtr_street = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}StrtNm')
     if dbtr_street is not None:
         data["Strasse"] = dbtr_street.text
 
-    # Hausnummer
+    # Hausnummer extrahieren
     dbtr_bldg = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}BldgNb')
     if dbtr_bldg is not None:
         data["Hausnummer"] = dbtr_bldg.text
 
-    # Postleitzahl
+    # Postleitzahl extrahieren
     dbtr_postal_code = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}PstCd')
     if dbtr_postal_code is not None:
         data["Postleitzahl"] = dbtr_postal_code.text
 
-    # Stadt
+    # Stadt extrahieren
     dbtr_city = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}TwnNm')
     if dbtr_city is not None:
         data["Stadt"] = dbtr_city.text
 
-    # Referenznummer
+    # Referenznummer extrahieren
     ntry_ref = root.find(f'.//{{{namespace}}}NtryRef')
     if ntry_ref is not None:
         data["Referenznummer"] = ntry_ref.text
 
-    # Zusätzliche Remittanzinformationen
+    # Zusätzliche Remittanzinformationen extrahieren
     additional_remit_info = root.find(f'.//{{{namespace}}}AddtlRmtInf')
     if additional_remit_info is not None:
         data["Zusätzliche Remittanzinformationen"] = additional_remit_info.text
