@@ -93,7 +93,7 @@ def extract_xml_data_to_df(xml_file):
     else:
         data["Adresse"] = "Nicht verfügbar"
 
-    # DataFrame erstellen und zurückgeben
+    # DataFrame erstellen
     df = pd.DataFrame([data])
     return df
 
@@ -103,12 +103,12 @@ def process_uploaded_files(uploaded_files):
     for uploaded_file in uploaded_files:
         with open(uploaded_file.name, 'wb') as f:
             f.write(uploaded_file.getbuffer())
-        dfs.append(extract_xml_data_to_df(uploaded_file.name))  # Hier wird nun das DataFrame hinzugefügt
+        dfs.append(extract_xml_data_to_df(uploaded_file.name))
     return pd.concat(dfs, ignore_index=True)
 
 
 # Streamlit App Layout
-st.title("XML zu Excel Konverter")
+st.title("XML-Datenextraktion und -Konvertierung in Excel")
 st.write("Lade deine XML-Dateien hoch, um die extrahierten Daten in eine Excel-Datei umzuwandeln.")
 
 uploaded_files = st.file_uploader("Wähle eine oder mehrere XML-Dateien aus", accept_multiple_files=True, type=['xml'])
