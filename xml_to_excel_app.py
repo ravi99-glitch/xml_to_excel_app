@@ -38,10 +38,10 @@ def extract_xml_data_to_df(xml_file):
     if dbtr_name is not None:
         data["Debitor Name"] = dbtr_name.text
 
-    # Straße
+    # Strasse
     dbtr_street = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}StrtNm')
     if dbtr_street is not None:
-        data["Straße"] = dbtr_street.text
+        data["Strasse"] = dbtr_street.text
 
     # Hausnummer
     dbtr_bldg = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}BldgNb')
