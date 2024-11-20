@@ -93,8 +93,9 @@ def extract_xml_data_to_df(xml_file):
     else:
         data["Adresse"] = "Nicht verfügbar"
 
-    # DataFrame erstellen
+    # DataFrame erstellen und zurückgeben
     df = pd.DataFrame([data])
+    return df
 
 
 def process_uploaded_files(uploaded_files):
@@ -102,7 +103,7 @@ def process_uploaded_files(uploaded_files):
     for uploaded_file in uploaded_files:
         with open(uploaded_file.name, 'wb') as f:
             f.write(uploaded_file.getbuffer())
-        dfs.append(extract_xml_data_to_df(uploaded_file.name))
+        dfs.append(extract_xml_data_to_df(uploaded_file.name))  # Hier wird nun das DataFrame hinzugefügt
     return pd.concat(dfs, ignore_index=True)
 
 
