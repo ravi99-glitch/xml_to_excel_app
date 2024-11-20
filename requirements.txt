@@ -1,4 +1,4 @@
-xml.etree.ElementTree
 pandas
 streamlit
+lxml
 openpyxl
