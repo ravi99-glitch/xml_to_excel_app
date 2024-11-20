@@ -28,7 +28,7 @@ def extract_xml_data_to_df(xml_file):
         "Zahlungsdatum": None,
         "Betrag": None,
         "Debitor Name": None,
-        "Straße": None,
+        "Strasse": None,
         "Hausnummer": None,
         "Postleitzahl": None,
         "Stadt": None,
@@ -55,7 +55,7 @@ def extract_xml_data_to_df(xml_file):
     # Straße extrahieren
     dbtr_street = root.find(f'.//{{{namespace}}}BkToCstmrDbtCdtNtfctn//{{{namespace}}}Ntfctn//{{{namespace}}}Ntry//{{{namespace}}}NtryDtls//{{{namespace}}}TxDtls//{{{namespace}}}RltdPties//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}StrtNm')
     if dbtr_street is not None:
-        data["Straße"] = dbtr_street.text
+        data["Strasse"] = dbtr_street.text
 
     # Hausnummer extrahieren
     dbtr_bldg = root.find(f'.//{{{namespace}}}BkToCstmrDbtCdtNtfctn//{{{namespace}}}Ntfctn//{{{namespace}}}Ntry//{{{namespace}}}NtryDtls//{{{namespace}}}TxDtls//{{{namespace}}}RltdPties//{{{namespace}}}Dbtr//{{{namespace}}}PstlAdr//{{{namespace}}}BldgNb')
