@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.054.001.04">
+<BkToCstmrDbtCdtNtfctn>
+<GrpHdr>
+<MsgId>CAMT054_20241104_172037938_58ZXIWJG</MsgId>
+<CreDtTm>2024-11-04T17:20:37.938Z</CreDtTm>
+<MsgPgntn>
+<PgNb>1</PgNb>
+<LastPgInd>true</LastPgInd>
+</MsgPgntn>
+<AddtlInf>SPS/1.7/PROD</AddtlInf>
+</GrpHdr>
+<Ntfctn>
+<Id>4QA02411048003435</Id>
+<CreDtTm>2024-11-04T17:20:37.938Z</CreDtTm>
+<FrToDt>
+<FrDtTm>2024-11-04T00:00:00.000+01:00</FrDtTm>
+<ToDtTm>2024-11-04T23:59:59.999+01:00</ToDtTm>
+</FrToDt>
+<RptgSrc>
+<Prtry>C53F</Prtry>
+</RptgSrc>
+<Acct>
+<Id>
+<IBAN>CH4104835090035050005</IBAN>
+</Id>
+<Svcr>
+<FinInstnId>
+<BICFI>CRESCHZZ80A</BICFI>
+<Nm>UBS Switzerland AG</Nm>
+<Othr>
+<Id>CHE-116.303.292 MWST</Id>
+<Issr>VAT-ID</Issr>
+</Othr>
+</FinInstnId>
+</Svcr>
+</Acct>
+<Ntry>
+<NtryRef>CH3531000090035050005/986590</NtryRef>
+<Amt Ccy="CHF">3448.00</Amt>
+<CdtDbtInd>CRDT</CdtDbtInd>
+<Sts>BOOK</Sts>
+<BookgDt>
+<Dt>2024-11-04</Dt>
+</BookgDt>
+<ValDt>
+<Dt>2024-11-04</Dt>
+</ValDt>
+<AcctSvcrRef>4QA02411048003435/1/C</AcctSvcrRef>
+<BkTxCd>
+<Domn>
+<Cd>PMNT</Cd>
+<Fmly>
+<Cd>RCDT</Cd>
+<SubFmlyCd>VCOM</SubFmlyCd>
+</Fmly>
+</Domn>
+</BkTxCd>
+<AmtDtls>
+<TxAmt>
+<Amt Ccy="CHF">3448.00</Amt>
+</TxAmt>
+</AmtDtls>
+<Chrgs>
+<TtlChrgsAndTaxAmt Ccy="CHF">4.25</TtlChrgsAndTaxAmt>
+<Rcrd>
+<Amt Ccy="CHF">4.25</Amt>
+<ChrgInclInd>false</ChrgInclInd>
+</Rcrd>
+</Chrgs>
+<NtryDtls>
+<Btch>
+<MsgId>4QA02411048003435</MsgId>
+<NbOfTxs>3</NbOfTxs>
+<TtlAmt Ccy="CHF">3448.00</TtlAmt>
+</Btch>
+<TxDtls>
+<Refs>
+<MsgId>13T8-241104-MS-57876</MsgId>
+<AcctSvcrRef>80WW-241104-CS-58005</AcctSvcrRef>
+<PmtInfId>13T8-241104-MS-57876</PmtInfId>
+</Refs>
+<Amt Ccy="CHF">1720.00</Amt>
+<CdtDbtInd>CRDT</CdtDbtInd>
+<AmtDtls>
+<TxAmt>
+<Amt Ccy="CHF">1720.00</Amt>
+</TxAmt>
+</AmtDtls>
+<BkTxCd>
+<Domn>
+<Cd>PMNT</Cd>
+<Fmly>
+<Cd>RCDT</Cd>
+<SubFmlyCd>VCOM</SubFmlyCd>
+</Fmly>
+</Domn>
+</BkTxCd>
+<Chrgs>
+<TtlChrgsAndTaxAmt Ccy="CHF">0.10</TtlChrgsAndTaxAmt>
+<Rcrd>
+<Amt Ccy="CHF">0.10</Amt>
+<CdtDbtInd>DBIT</CdtDbtInd>
+<ChrgInclInd>false</ChrgInclInd>
+<Tp>
+<Prtry>
+<Id>INTERNAL</Id>
+</Prtry>
+</Tp>
+</Rcrd>
+</Chrgs>
+<RltdPties>
+<Dbtr>
+<Nm>SASA ILIC</Nm>
+<PstlAdr>
+<AdrLine>NASSACKERSTRASSE 1 CH 8952 SCHLIEREN</AdrLine>
+</PstlAdr>
+</Dbtr>
+<UltmtDbtr>
+<Nm>SASA UND VIOLETA ILIC</Nm>
+<PstlAdr>
+<StrtNm>NASSACKERSTRASSE</StrtNm>
+<BldgNb>1</BldgNb>
+<PstCd>8952</PstCd>
+<TwnNm>SCHLIEREN</TwnNm>
+<Ctry>CH</Ctry>
+</PstlAdr>
+</UltmtDbtr>
+</RltdPties>
+<RmtInf>
+<Strd>
+<CdtrRefInf>
+<Tp>
+<CdOrPrtry>
+<Prtry>QRR</Prtry>
+</CdOrPrtry>
+</Tp>
+<Ref>986590000000000024000001014</Ref>
+</CdtrRefInf>
+<AddtlRmtInf>2400.101</AddtlRmtInf>
+</Strd>
+</RmtInf>
+</TxDtls>
+<TxDtls>
+<Refs>
+<MsgId>13T3-241104-MS-04104</MsgId>
+<AcctSvcrRef>80WT-241104-CS-18898</AcctSvcrRef>
+<PmtInfId>13T3-241104-MS-04104</PmtInfId>
+</Refs>
+<Amt Ccy="CHF">1548.00</Amt>
+<CdtDbtInd>CRDT</CdtDbtInd>
+<AmtDtls>
+<TxAmt>
+<Amt Ccy="CHF">1548.00</Amt>
+</TxAmt>
+</AmtDtls>
+<BkTxCd>
+<Domn>
+<Cd>PMNT</Cd>
+<Fmly>
+<Cd>RCDT</Cd>
+<SubFmlyCd>VCOM</SubFmlyCd>
+</Fmly>
+</Domn>
+</BkTxCd>
+<Chrgs>
+<TtlChrgsAndTaxAmt Ccy="CHF">4.05</TtlChrgsAndTaxAmt>
+<Rcrd>
+<Amt Ccy="CHF">3.95</Amt>
+<CdtDbtInd>DBIT</CdtDbtInd>
+<ChrgInclInd>false</ChrgInclInd>
+<Tp>
+<Prtry>
+<Id>2</Id>
+</Prtry>
+</Tp>
+</Rcrd>
+<Rcrd>
+<Amt Ccy="CHF">0.10</Amt>
+<CdtDbtInd>DBIT</CdtDbtInd>
+<ChrgInclInd>false</ChrgInclInd>
+<Tp>
+<Prtry>
+<Id>INTERNAL</Id>
+</Prtry>
+</Tp>
+</Rcrd>
+</Chrgs>
+<RltdPties>
+<Dbtr>
+<Nm>Somanathan Satheeshkumar</Nm>
+<PstlAdr>
+<StrtNm>Nassackerstrasse</StrtNm>
+<BldgNb>1</BldgNb>
+<PstCd>8952</PstCd>
+<TwnNm>Schlieren</TwnNm>
+<Ctry>CH</Ctry>
+</PstlAdr>
+</Dbtr>
+<UltmtDbtr>
+<Nm>Somanathan Satheeghkumar</Nm>
+<PstlAdr>
+<StrtNm>Nassackerstrasse</StrtNm>
+<BldgNb>1</BldgNb>
+<PstCd>8952</PstCd>
+<TwnNm>Schlieren</TwnNm>
+<Ctry>CH</Ctry>
+</PstlAdr>
+</UltmtDbtr>
+</RltdPties>
+<RmtInf>
+<Strd>
+<CdtrRefInf>
+<Tp>
+<CdOrPrtry>
+<Prtry>QRR</Prtry>
+</CdOrPrtry>
+</Tp>
+<Ref>986590000000000024000001022</Ref>
+</CdtrRefInf>
+<AddtlRmtInf>2400.102</AddtlRmtInf>
+</Strd>
+</RmtInf>
+</TxDtls>
+<TxDtls>
+<Refs>
+<MsgId>13T8-241104-MS-59675</MsgId>
+<AcctSvcrRef>80WW-241104-CS-58521</AcctSvcrRef>
+<PmtInfId>13T8-241104-MS-59675</PmtInfId>
+</Refs>
+<Amt Ccy="CHF">180.00</Amt>
+<CdtDbtInd>CRDT</CdtDbtInd>
+<AmtDtls>
+<TxAmt>
+<Amt Ccy="CHF">180.00</Amt>
+</TxAmt>
+</AmtDtls>
+<BkTxCd>
+<Domn>
+<Cd>PMNT</Cd>
+<Fmly>
+<Cd>RCDT</Cd>
+<SubFmlyCd>VCOM</SubFmlyCd>
+</Fmly>
+</Domn>
+</BkTxCd>
+<Chrgs>
+<TtlChrgsAndTaxAmt Ccy="CHF">0.10</TtlChrgsAndTaxAmt>
+<Rcrd>
+<Amt Ccy="CHF">0.10</Amt>
+<CdtDbtInd>DBIT</CdtDbtInd>
+<ChrgInclInd>false</ChrgInclInd>
+<Tp>
+<Prtry>
+<Id>INTERNAL</Id>
+</Prtry>
+</Tp>
+</Rcrd>
+</Chrgs>
+<RltdPties>
+<Dbtr>
+<Nm>SASA ILIC</Nm>
+<PstlAdr>
+<AdrLine>NASSACKERSTRASSE 1 CH 8952 SCHLIEREN</AdrLine>
+</PstlAdr>
+</Dbtr>
+<UltmtDbtr>
+<Nm>SASA UND VIOLETA ILIC</Nm>
+<PstlAdr>
+<StrtNm>NASSACKERSTRASSE</StrtNm>
+<BldgNb>1</BldgNb>
+<PstCd>8952</PstCd>
+<TwnNm>SCHLIEREN</TwnNm>
+<Ctry>CH</Ctry>
+</PstlAdr>
+</UltmtDbtr>
+</RltdPties>
+<RmtInf>
+<Strd>
+<CdtrRefInf>
+<Tp>
+<CdOrPrtry>
+<Prtry>QRR</Prtry>
+</CdOrPrtry>
+</Tp>
+<Ref>986590000000000024000007039</Ref>
+</CdtrRefInf>
+<AddtlRmtInf>2400.703</AddtlRmtInf>
+</Strd>
+</RmtInf>
+</TxDtls>
+</NtryDtls>
+</Ntry>
+</Ntfctn>
+</BkToCstmrDbtCdtNtfctn>
+</Document>

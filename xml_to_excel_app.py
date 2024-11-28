@@ -41,7 +41,7 @@ def extract_xml_data_to_df(xml_file):
         # FrDtTm (Zahlungsdatum) extrahieren und formatieren
         fr_dt_tm = root.find(f'.//{{{namespace}}}FrDtTm')
         if fr_dt_tm is not None:
-            data["Zahlungsdatum"] = pd.to_datetime(fr_dt_tm.text).strftime('%d-%m-%Y %H:%M:%S')
+            data["Zahlungsdatum"] = pd.to_datetime(fr_dt_tm.text).strftime('%d-%m-%Y')
 
         # TxAmt (Betrag) extrahieren
         tx_amt = root.find(f'.//{{{namespace}}}Amt')
