@@ -4,17 +4,10 @@ import streamlit as st
 import openpyxl
 import os
 
-
 def extract_xml_data_to_df(xml_file):
     """
     Diese Funktion extrahiert relevante Daten aus einem XML-Dokument
     und gibt sie als Pandas DataFrame zurück.
-    
-    Args:
-        xml_file (str): Der Pfad zur XML-Datei.
-        
-    Returns:
-        pd.DataFrame: Ein DataFrame mit den extrahierten Daten.
     """
     try:
         # XML-Datei einlesen und Root-Element extrahieren
@@ -26,73 +19,45 @@ def extract_xml_data_to_df(xml_file):
 
         # Die Daten, die extrahiert werden sollen
         data = {
-            "Zahlungsdatum": None,
-            "Betrag": None,
-            "Debitor Name": None,
-            "Strasse": None,
-            "Hausnummer": None,
-            "Postleitzahl": None,
-            "Stadt": None,
-            "Referenznummer": None,
+            "Buchungsdatum": None,
+            "Transaktionsbetrag": None,
+            "Ultimativer Schuldnername": None,
             "Zusätzliche Remittanzinformationen": None,
             "Adresse": None
         }
 
-        # FrDtTm (Zahlungsdatum) extrahieren und formatieren
-        fr_dt_tm = root.find(f'.//{{{namespace}}}FrDtTm')
-        if fr_dt_tm is not None:
-            data["Zahlungsdatum"] = pd.to_datetime(fr_dt_tm.text).strftime('%d-%m-%Y')
+        # Buchungsdatum (BookgDt.Dt) extrahieren und formatieren
+        bookg_date = root.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
+        if bookg_date is not None:
+            data["Buchungsdatum"] = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
 
-        # TxAmt (Betrag) extrahieren
-        tx_amt = root.find(f'.//{{{namespace}}}Amt')
+        # Transaktionsbetrag (TxAmt.Amt) extrahieren und formatieren
+        tx_amt = root.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
         if tx_amt is not None:
-            data["Betrag"] = tx_amt.text
+            data["Transaktionsbetrag"] = f"CHF {float(tx_amt.text):,.2f}".replace(",", " ")
 
-        # Debitor Name extrahieren
-        dbtr_name = root.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}Nm')
-        if dbtr_name is not None:
-            data["Debitor Name"] = dbtr_name.text
+        # Ultimativer Schuldnername (UltmtDbtr.Nm) extrahieren
+        ultmt_dbtr_name = root.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
+        if ultmt_dbtr_name is not None:
+            data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
 
-        # Straße extrahieren
-        dbtr_street = root.find(f'.//{{{namespace}}}PstlAdr//{{{namespace}}}StrtNm')
-        if dbtr_street is not None:
-            data["Strasse"] = dbtr_street.text
+        # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
+        addtl_rmt_inf = root.find(f'.//{{{namespace}}}AddtlRmtInf')
+        if addtl_rmt_inf is not None:
+            data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
 
-        # Hausnummer extrahieren
-        dbtr_bldg = root.find(f'.//{{{namespace}}}PstlAdr//{{{namespace}}}BldgNb')
-        if dbtr_bldg is not None:
-            data["Hausnummer"] = dbtr_bldg.text
-
-        # Postleitzahl extrahieren
-        dbtr_postal_code = root.find(f'.//{{{namespace}}}PstlAdr//{{{namespace}}}PstCd')
-        if dbtr_postal_code is not None:
-            data["Postleitzahl"] = dbtr_postal_code.text
-
-        # Stadt extrahieren
-        dbtr_city = root.find(f'.//{{{namespace}}}PstlAdr//{{{namespace}}}TwnNm')
-        if dbtr_city is not None:
-            data["Stadt"] = dbtr_city.text
-
-        # Referenznummer extrahieren
-        ntry_ref = root.find(f'.//{{{namespace}}}NtryRef')
-        if ntry_ref is not None:
-            data["Referenznummer"] = ntry_ref.text
-
-        # Zusätzliche Remittanzinformationen extrahieren
-        additional_remit_info = root.find(f'.//{{{namespace}}}AddtlRmtInf')
-        if additional_remit_info is not None:
-            data["Zusätzliche Remittanzinformationen"] = additional_remit_info.text
-
-        # Adresse zusammenstellen (falls mehrere Adresszeilen existieren)
-        address_lines = []
-        for adr_line in root.findall(f'.//{{{namespace}}}AdrLine'):
-            if adr_line is not None:
-                address_lines.append(adr_line.text)
-
-        if address_lines:
-            data["Adresse"] = ", ".join(address_lines)
-        else:
-            data["Adresse"] = "Nicht verfügbar"
+        # Adresse (Straße, Hausnummer, PLZ, Stadt) kombinieren
+        street = root.find(f'.//{{{namespace}}}StrtNm')
+        building = root.find(f'.//{{{namespace}}}BldgNb')
+        postal_code = root.find(f'.//{{{namespace}}}PstCd')
+        city = root.find(f'.//{{{namespace}}}TwnNm')
+        address_components = [
+            street.text if street is not None else "",
+            building.text if building is not None else "",
+            postal_code.text if postal_code is not None else "",
+            city.text if city is not None else ""
+        ]
+        data["Adresse"] = ", ".join(filter(None, address_components))
 
         # DataFrame erstellen
         return pd.DataFrame([data])
