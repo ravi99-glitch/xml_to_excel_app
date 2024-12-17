@@ -10,9 +10,6 @@ def extract_xml_data_to_df(xml_file):
     und gibt sie als Pandas DataFrame zurück.
     """
     try:
-        import xml.etree.ElementTree as ET
-        import pandas as pd
-
         # XML-Datei einlesen und Root-Element extrahieren
         tree = ET.parse(xml_file)
         root = tree.getroot()
@@ -23,11 +20,11 @@ def extract_xml_data_to_df(xml_file):
         # Liste zur Speicherung der extrahierten Transaktionsdaten
         extracted_data = []
 
-        # Alle Buchungseinträge (Ntry) finden
-        entries = root.findall(f'.//{{{namespace}}}Ntry')
+        # Alle Transaktionsdetails (TxDtls) finden
+        transactions = root.findall(f'.//{{{namespace}}}TxDtls')
 
-        for entry in entries:
-            # Daten für einen Eintrag extrahieren
+        for transaction in transactions:
+            # Daten für eine Transaktion extrahieren
             data = {
                 "Buchungsdatum": None,
                 "Transaktionsbetrag": None,
@@ -37,31 +34,30 @@ def extract_xml_data_to_df(xml_file):
             }
 
             # Buchungsdatum (BookgDt.Dt) extrahieren
-            bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
+            bookg_date = transaction.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
             if bookg_date is not None:
                 data["Buchungsdatum"] = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
 
-            # Transaktionsbetrag (Amt.Ccy) extrahieren
-            amount = entry.find(f'.//{{{namespace}}}Amt')
-            if amount is not None and "Ccy" in amount.attrib:
-                currency = amount.attrib["Ccy"]
-                data["Transaktionsbetrag"] = f"{currency} {float(amount.text):,.2f}".replace(",", " ")
+            # Transaktionsbetrag (TxAmt.Amt) extrahieren
+            tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
+            if tx_amt is not None:
+                data["Transaktionsbetrag"] = f"CHF {float(tx_amt.text):,.2f}".replace(",", " ")
 
             # Ultimativer Schuldnername (UltmtDbtr.Nm) extrahieren
-            ultmt_dbtr_name = entry.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
+            ultmt_dbtr_name = transaction.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
             if ultmt_dbtr_name is not None:
                 data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
 
             # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
-            addtl_rmt_inf = entry.find(f'.//{{{namespace}}}AddtlRmtInf')
+            addtl_rmt_inf = transaction.find(f'.//{{{namespace}}}AddtlRmtInf')
             if addtl_rmt_inf is not None:
                 data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
 
             # Adresse (Strasse, Hausnummer, PLZ, Stadt) kombinieren
-            street = entry.find(f'.//{{{namespace}}}StrtNm')
-            building = entry.find(f'.//{{{namespace}}}BldgNb')
-            postal_code = entry.find(f'.//{{{namespace}}}PstCd')
-            city = entry.find(f'.//{{{namespace}}}TwnNm')
+            street = transaction.find(f'.//{{{namespace}}}StrtNm')
+            building = transaction.find(f'.//{{{namespace}}}BldgNb')
+            postal_code = transaction.find(f'.//{{{namespace}}}PstCd')
+            city = transaction.find(f'.//{{{namespace}}}TwnNm')
             address_components = [
                 street.text if street is not None else "",
                 building.text if building is not None else "",
