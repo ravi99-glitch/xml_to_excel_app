@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import streamlit as st
 import pytz
+import openpyxl
 
 def extract_xml_data_to_df(xml_file):
     """
@@ -33,6 +34,7 @@ def extract_xml_data_to_df(xml_file):
                     "Buchungsdatum": bookg_date_str,
                     "Transaktionsbetrag": None,
                     "Ultimativer Schuldnername": None,
+                    "Debitor": None,  # Hinzugefügt: Name des Debitors
                     "Zusätzliche Remittanzinformationen": None,
                     "Adresse": None,
                 }
@@ -48,6 +50,11 @@ def extract_xml_data_to_df(xml_file):
                     ultmt_dbtr_name = transaction.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
                     if ultmt_dbtr_name is not None:
                         data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
+
+                    # Debitorname (Dbtr.Nm) extrahieren
+                    dbtr_name = transaction.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}Nm')
+                    if dbtr_name is not None:
+                        data["Debitor"] = dbtr_name.text  # Debitorname in die Daten einfügen
 
                     # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
                     addtl_rmt_inf = transaction.find(f'.//{{{namespace}}}AddtlRmtInf')
