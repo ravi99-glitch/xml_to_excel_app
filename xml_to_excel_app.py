@@ -46,7 +46,7 @@ def extract_xml_data_to_df(xml_file):
         if addtl_rmt_inf is not None:
             data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
 
-        # Adresse (Straße, Hausnummer, PLZ, Stadt) kombinieren
+        # Adresse (Strasse, Hausnummer, PLZ, Stadt) kombinieren
         street = root.find(f'.//{{{namespace}}}StrtNm')
         building = root.find(f'.//{{{namespace}}}BldgNb')
         postal_code = root.find(f'.//{{{namespace}}}PstCd')
