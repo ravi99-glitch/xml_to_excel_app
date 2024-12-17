@@ -2,7 +2,6 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import streamlit as st
 import pytz
-import openpyxl
 
 def extract_xml_data_to_df(xml_file):
     """
