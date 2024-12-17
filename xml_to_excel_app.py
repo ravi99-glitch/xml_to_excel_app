@@ -3,6 +3,14 @@ import pandas as pd
 import streamlit as st
 import openpyxl
 
+
+def ns_tag(namespace, tag):
+    """
+    Hilfsfunktion zur Erstellung von Namespaced-Tags.
+    """
+    return f'{{{namespace}}}{tag}'
+
+
 def extract_xml_data_to_df(xml_file):
     """
     Extrahiert alle Zahlungen aus einem XML-Dokument und gibt sie als Pandas DataFrame zurück.
@@ -19,17 +27,17 @@ def extract_xml_data_to_df(xml_file):
         extracted_data = []
 
         # Alle Buchungseinträge (Ntry) finden
-        entries = root.findall(f'.//{{{namespace}}}Ntry')
+        entries = root.findall(ns_tag(namespace, 'Ntry'))
 
         for entry in entries:
             # Buchungsdatum (BookgDt.Dt) extrahieren
-            bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
+            bookg_date = entry.find(ns_tag(namespace, 'BookgDt') + '/' + ns_tag(namespace, 'Dt'))
             bookg_date_str = None
             if bookg_date is not None:
                 bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
 
             # Alle Transaktionsdetails (TxDtls) innerhalb eines Eintrags finden
-            transactions = entry.findall(f'.//{{{namespace}}}TxDtls')
+            transactions = entry.findall(ns_tag(namespace, 'TxDtls'))
 
             for transaction in transactions:
                 # Daten für eine Transaktion extrahieren
@@ -43,26 +51,26 @@ def extract_xml_data_to_df(xml_file):
 
                 try:
                     # Transaktionsbetrag (TxAmt.Amt) extrahieren
-                    tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
+                    tx_amt = transaction.find(ns_tag(namespace, 'TxAmt') + '/' + ns_tag(namespace, 'Amt'))
                     if tx_amt is not None:
                         currency = tx_amt.attrib.get("Ccy", "CHF")
                         data["Transaktionsbetrag"] = f"{currency} {float(tx_amt.text):,.2f}".replace(",", " ")
 
                     # Ultimativer Schuldnername (UltmtDbtr.Nm) extrahieren
-                    ultmt_dbtr_name = transaction.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
+                    ultmt_dbtr_name = transaction.find(ns_tag(namespace, 'UltmtDbtr') + '/' + ns_tag(namespace, 'Nm'))
                     if ultmt_dbtr_name is not None:
                         data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
 
                     # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
-                    addtl_rmt_inf = transaction.find(f'.//{{{namespace}}}AddtlRmtInf')
+                    addtl_rmt_inf = transaction.find(ns_tag(namespace, 'AddtlRmtInf'))
                     if addtl_rmt_inf is not None:
                         data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
 
                     # Adresse (Strasse, Hausnummer, PLZ, Stadt) kombinieren
-                    street = transaction.find(f'.//{{{namespace}}}StrtNm')
-                    building = transaction.find(f'.//{{{namespace}}}BldgNb')
-                    postal_code = transaction.find(f'.//{{{namespace}}}PstCd')
-                    city = transaction.find(f'.//{{{namespace}}}TwnNm')
+                    street = transaction.find(ns_tag(namespace, 'StrtNm'))
+                    building = transaction.find(ns_tag(namespace, 'BldgNb'))
+                    postal_code = transaction.find(ns_tag(namespace, 'PstCd'))
+                    city = transaction.find(ns_tag(namespace, 'TwnNm'))
                     address_components = [
                         street.text if street is not None else "",
                         building.text if building is not None else "",
