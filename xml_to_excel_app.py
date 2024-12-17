@@ -3,30 +3,36 @@ import pandas as pd
 import streamlit as st
 import openpyxl
 
-def ns_find(element, namespace, path):
-    """
-    Hilfsfunktion, die einen XPath-Pfad mit Namespace ergänzt und auswertet.
-    """
-    full_path = '/'.join([f'{{{namespace}}}{tag}' for tag in path.split('/')])
-    return element.find(full_path)
-
 def extract_xml_data_to_df(xml_file):
     """
     Extrahiert alle Zahlungen aus einem XML-Dokument und gibt sie als Pandas DataFrame zurück.
     """
     try:
+        # XML-Datei einlesen und Root-Element extrahieren
         tree = ET.parse(xml_file)
         root = tree.getroot()
+
+        # Namespace extrahieren
         namespace = root.tag.split('}')[0].strip('{')
+
+        # Liste zur Speicherung der extrahierten Transaktionsdaten
         extracted_data = []
-        entries = ns_find(root, namespace, 'Ntry')
+
+        # Alle Buchungseinträge (Ntry) finden
+        entries = root.findall(f'.//{{{namespace}}}Ntry')
 
         for entry in entries:
-            bookg_date = ns_find(entry, namespace, 'BookgDt/Dt')
-            bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else None
+            # Buchungsdatum (BookgDt.Dt) extrahieren
+            bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
+            bookg_date_str = None
+            if bookg_date is not None:
+                bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
 
-            transactions = ns_find(entry, namespace, 'TxDtls')
+            # Alle Transaktionsdetails (TxDtls) innerhalb eines Eintrags finden
+            transactions = entry.findall(f'.//{{{namespace}}}TxDtls')
+
             for transaction in transactions:
+                # Daten für eine Transaktion extrahieren
                 data = {
                     "Buchungsdatum": bookg_date_str,
                     "Transaktionsbetrag": None,
@@ -34,24 +40,29 @@ def extract_xml_data_to_df(xml_file):
                     "Zusätzliche Remittanzinformationen": None,
                     "Adresse": None,
                 }
+
                 try:
-                    tx_amt = ns_find(transaction, namespace, 'TxAmt/Amt')
+                    # Transaktionsbetrag (TxAmt.Amt) extrahieren
+                    tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
                     if tx_amt is not None:
                         currency = tx_amt.attrib.get("Ccy", "CHF")
                         data["Transaktionsbetrag"] = f"{currency} {float(tx_amt.text):,.2f}".replace(",", " ")
 
-                    ultmt_dbtr_name = ns_find(transaction, namespace, 'UltmtDbtr/Nm')
+                    # Ultimativer Schuldnername (UltmtDbtr.Nm) extrahieren
+                    ultmt_dbtr_name = transaction.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
                     if ultmt_dbtr_name is not None:
                         data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
 
-                    addtl_rmt_inf = ns_find(transaction, namespace, 'AddtlRmtInf')
+                    # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
+                    addtl_rmt_inf = transaction.find(f'.//{{{namespace}}}AddtlRmtInf')
                     if addtl_rmt_inf is not None:
                         data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
 
-                    street = ns_find(transaction, namespace, 'StrtNm')
-                    building = ns_find(transaction, namespace, 'BldgNb')
-                    postal_code = ns_find(transaction, namespace, 'PstCd')
-                    city = ns_find(transaction, namespace, 'TwnNm')
+                    # Adresse (Strasse, Hausnummer, PLZ, Stadt) kombinieren
+                    street = transaction.find(f'.//{{{namespace}}}StrtNm')
+                    building = transaction.find(f'.//{{{namespace}}}BldgNb')
+                    postal_code = transaction.find(f'.//{{{namespace}}}PstCd')
+                    city = transaction.find(f'.//{{{namespace}}}TwnNm')
                     address_components = [
                         street.text if street is not None else "",
                         building.text if building is not None else "",
@@ -60,9 +71,13 @@ def extract_xml_data_to_df(xml_file):
                     ]
                     data["Adresse"] = ", ".join(filter(None, address_components))
                 except AttributeError as e:
+                    # Fehlende Tags ignorieren und eine Warnung ausgeben
                     st.warning(f"Ein erwartetes XML-Tag fehlt: {e}")
+
+                # Hinzufügen der extrahierten Daten zur Liste
                 extracted_data.append(data)
 
+        # DataFrame aus den gesammelten Daten erstellen
         return pd.DataFrame(extracted_data)
 
     except ET.ParseError as e:
@@ -70,19 +85,19 @@ def extract_xml_data_to_df(xml_file):
     except Exception as e:
         raise Exception(f"Ein unerwarteter Fehler ist aufgetreten: {e}")
 
+
 def process_uploaded_files(uploaded_files):
     """
     Verarbeitet hochgeladene XML-Dateien und kombiniert die extrahierten Daten in einen DataFrame.
     """
     dfs = []
     for uploaded_file in uploaded_files:
-        if uploaded_file.size == 0:
+        if uploaded_file.size == 0:  # Überprüfung, ob die Datei leer ist
             st.error(f"Die Datei '{uploaded_file.name}' ist leer und wurde übersprungen.")
             continue
 
         try:
             dfs.append(extract_xml_data_to_df(uploaded_file))
-            st.success(f"Die Datei '{uploaded_file.name}' wurde erfolgreich verarbeitet!")
         except ET.ParseError as e:
             st.error(f"Fehler beim Verarbeiten der Datei '{uploaded_file.name}': {e}")
         except Exception as e:
@@ -109,11 +124,13 @@ if uploaded_files:
     combined_df = process_uploaded_files(uploaded_files)
 
     if combined_df is not None:
-        st.dataframe(combined_df.head(10))  # Vorschau der ersten 10 Zeilen
+        st.dataframe(combined_df)
 
+        # Excel-Datei erstellen
         excel_file = "extrahierte_daten.xlsx"
         combined_df.to_excel(excel_file, index=False)
 
+        # Downloadlink für Excel-Datei
         with open(excel_file, "rb") as f:
             st.download_button(
                 label="Excel-Datei herunterladen",
