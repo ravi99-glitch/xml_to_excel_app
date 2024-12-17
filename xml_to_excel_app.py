@@ -127,7 +127,7 @@ if uploaded_files:
     if combined_df is not None:
         st.dataframe(combined_df)
 
-        # Excel-Datei erstellen
+        # Excel-Datei erstellen mit einem dynamischen Namen basierend auf dem aktuellen Datum und der Uhrzeit
         excel_file = f"extrahierte_daten_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         combined_df.to_excel(excel_file, index=False)
 
@@ -136,6 +136,6 @@ if uploaded_files:
             st.download_button(
                 label="Excel-Datei herunterladen",
                 data=f,
-                file_name=excel_file,
+                file_name = excel_file, 
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
