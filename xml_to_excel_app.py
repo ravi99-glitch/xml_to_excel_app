@@ -136,6 +136,6 @@ if uploaded_files:
             st.download_button(
                 label="Excel-Datei herunterladen",
                 data=f,
-                file_name="extrahierte_daten.xlsx",
+                file_name=excel_file,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
