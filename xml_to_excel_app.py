@@ -128,7 +128,7 @@ if uploaded_files:
         st.dataframe(combined_df)
 
         # Excel-Datei erstellen
-        excel_file = "extrahierte_daten.xlsx"
+        excel_file = f"extrahierte_daten_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         combined_df.to_excel(excel_file, index=False)
 
         # Downloadlink für Excel-Datei
