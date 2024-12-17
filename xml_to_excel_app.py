@@ -6,7 +6,7 @@ import os
 
 def extract_xml_data_to_df(xml_file):
     """
-    Diese Funktion extrahiert relevante Daten aus einem XML-Dokument
+    Diese Funktion extrahiert alle Zahlungen aus einem XML-Dokument
     und gibt sie als Pandas DataFrame zurück.
     """
     try:
@@ -17,50 +17,60 @@ def extract_xml_data_to_df(xml_file):
         # Namespace extrahieren
         namespace = root.tag.split('}')[0].strip('{')
 
-        # Die Daten, die extrahiert werden sollen
-        data = {
-            "Buchungsdatum": None,
-            "Transaktionsbetrag": None,
-            "Ultimativer Schuldnername": None,
-            "Zusätzliche Remittanzinformationen": None,
-            "Adresse": None
-        }
+        # Liste zur Speicherung der extrahierten Transaktionsdaten
+        extracted_data = []
 
-        # Buchungsdatum (BookgDt.Dt) extrahieren und formatieren
-        bookg_date = root.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
-        if bookg_date is not None:
-            data["Buchungsdatum"] = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
+        # Alle Transaktionsdetails (TxDtls) finden
+        transactions = root.findall(f'.//{{{namespace}}}TxDtls')
 
-        # Transaktionsbetrag (TxAmt.Amt) extrahieren und formatieren
-        tx_amt = root.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
-        if tx_amt is not None:
-            data["Transaktionsbetrag"] = f"CHF {float(tx_amt.text):,.2f}".replace(",", " ")
+        for transaction in transactions:
+            # Daten für eine Transaktion extrahieren
+            data = {
+                "Buchungsdatum": None,
+                "Transaktionsbetrag": None,
+                "Ultimativer Schuldnername": None,
+                "Zusätzliche Remittanzinformationen": None,
+                "Adresse": None,
+            }
 
-        # Ultimativer Schuldnername (UltmtDbtr.Nm) extrahieren
-        ultmt_dbtr_name = root.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
-        if ultmt_dbtr_name is not None:
-            data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
+            # Buchungsdatum (BookgDt.Dt) extrahieren
+            bookg_date = transaction.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
+            if bookg_date is not None:
+                data["Buchungsdatum"] = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
 
-        # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
-        addtl_rmt_inf = root.find(f'.//{{{namespace}}}AddtlRmtInf')
-        if addtl_rmt_inf is not None:
-            data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
+            # Transaktionsbetrag (TxAmt.Amt) extrahieren
+            tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
+            if tx_amt is not None:
+                data["Transaktionsbetrag"] = f"CHF {float(tx_amt.text):,.2f}".replace(",", " ")
 
-        # Adresse (Strasse, Hausnummer, PLZ, Stadt) kombinieren
-        street = root.find(f'.//{{{namespace}}}StrtNm')
-        building = root.find(f'.//{{{namespace}}}BldgNb')
-        postal_code = root.find(f'.//{{{namespace}}}PstCd')
-        city = root.find(f'.//{{{namespace}}}TwnNm')
-        address_components = [
-            street.text if street is not None else "",
-            building.text if building is not None else "",
-            postal_code.text if postal_code is not None else "",
-            city.text if city is not None else ""
-        ]
-        data["Adresse"] = ", ".join(filter(None, address_components))
+            # Ultimativer Schuldnername (UltmtDbtr.Nm) extrahieren
+            ultmt_dbtr_name = transaction.find(f'.//{{{namespace}}}UltmtDbtr//{{{namespace}}}Nm')
+            if ultmt_dbtr_name is not None:
+                data["Ultimativer Schuldnername"] = ultmt_dbtr_name.text
 
-        # DataFrame erstellen
-        return pd.DataFrame([data])
+            # Zusätzliche Remittanzinformationen (AddtlRmtInf) extrahieren
+            addtl_rmt_inf = transaction.find(f'.//{{{namespace}}}AddtlRmtInf')
+            if addtl_rmt_inf is not None:
+                data["Zusätzliche Remittanzinformationen"] = addtl_rmt_inf.text
+
+            # Adresse (Strasse, Hausnummer, PLZ, Stadt) kombinieren
+            street = transaction.find(f'.//{{{namespace}}}StrtNm')
+            building = transaction.find(f'.//{{{namespace}}}BldgNb')
+            postal_code = transaction.find(f'.//{{{namespace}}}PstCd')
+            city = transaction.find(f'.//{{{namespace}}}TwnNm')
+            address_components = [
+                street.text if street is not None else "",
+                building.text if building is not None else "",
+                postal_code.text if postal_code is not None else "",
+                city.text if city is not None else ""
+            ]
+            data["Adresse"] = ", ".join(filter(None, address_components))
+
+            # Hinzufügen der extrahierten Daten zur Liste
+            extracted_data.append(data)
+
+        # DataFrame aus den gesammelten Daten erstellen
+        return pd.DataFrame(extracted_data)
 
     except ET.ParseError as e:
         raise ET.ParseError(f"Die Datei '{xml_file}' ist kein gültiges XML-Dokument: {e}")
