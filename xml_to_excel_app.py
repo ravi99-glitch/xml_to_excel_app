@@ -8,7 +8,6 @@ def extract_xml_data_to_df(xml_file):
     Extrahiert alle Zahlungen aus einem XML-Dokument und gibt sie als Pandas DataFrame zurück.
     """
     try:
-        # XML-Datei einlesen und Root-Element extrahieren
         tree = ET.parse(xml_file)
         root = tree.getroot()
 
@@ -24,15 +23,12 @@ def extract_xml_data_to_df(xml_file):
         for entry in entries:
             # Buchungsdatum (BookgDt.Dt) extrahieren
             bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
-            bookg_date_str = None
-            if bookg_date is not None:
-                bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y')
+            bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else None
 
             # Alle Transaktionsdetails (TxDtls) innerhalb eines Eintrags finden
             transactions = entry.findall(f'.//{{{namespace}}}TxDtls')
 
             for transaction in transactions:
-                # Daten für eine Transaktion extrahieren
                 data = {
                     "Buchungsdatum": bookg_date_str,
                     "Transaktionsbetrag": None,
@@ -70,9 +66,13 @@ def extract_xml_data_to_df(xml_file):
                         city.text if city is not None else ""
                     ]
                     data["Adresse"] = ", ".join(filter(None, address_components))
+
                 except AttributeError as e:
                     # Fehlende Tags ignorieren und eine Warnung ausgeben
                     st.warning(f"Ein erwartetes XML-Tag fehlt: {e}")
+                except Exception as e:
+                    # Allgemeine Fehlerbehandlung
+                    st.warning(f"Fehler bei der Datenextraktion: {e}")
 
                 # Hinzufügen der extrahierten Daten zur Liste
                 extracted_data.append(data)
@@ -98,6 +98,7 @@ def process_uploaded_files(uploaded_files):
 
         try:
             dfs.append(extract_xml_data_to_df(uploaded_file))
+            st.success(f"Die Datei '{uploaded_file.name}' wurde erfolgreich verarbeitet!")
         except ET.ParseError as e:
             st.error(f"Fehler beim Verarbeiten der Datei '{uploaded_file.name}': {e}")
         except Exception as e:
