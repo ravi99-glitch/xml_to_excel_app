@@ -9,69 +9,78 @@ def apply_glitter_rain():
     st.markdown(
         """
         <style>
-        /* Hintergrund & Basis-Design */
+        /* Main background */
         .stApp {
-            background: linear-gradient(to bottom, #FFF0F5, #FFB6C1); /* Helles Rosa Verlauf */
+            background: linear-gradient(to bottom, #FFF0F5, #FFB6C1);
             background-attachment: fixed;
-            overflow: hidden;
         }
 
-        /* --- NEU: DUNKLE TEXTFARBE FÜR BESSEREN KONTRAST --- */
-        /* Dies ändert den Text von st.write und die Labels (wie beim Uploader) */
-        p, label, .stMarkdown, .stFileUploader label {
-            color: #4B0082 !important; /* Dunkles Indigoblau/Lila statt Weiß */
-            font-weight: 600; /* Etwas dicker für bessere Lesbarkeit */
-            text-shadow: none; /* Kein Glühen für normalen Text, damit er klar bleibt */
+        /* --- DRAG AND DROP FIELD MATCHING --- */
+        /* Targets the outer container of the uploader */
+        [data-testid="stFileUploader"] {
+            background-color: rgba(255, 182, 193, 0.3); /* Soft pink overlay */
+            border-radius: 20px;
+            padding: 20px;
         }
 
-        /* Titel-Styling (bleibt leuchtend Pink) */
-        h1 {
+        /* Targets the actual dropzone box */
+        [data-testid="stFileUploadDropzone"] {
+            background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white */
+            border: 2px dashed #FF1493 !important; /* Hot pink dashed border */
+            border-radius: 15px;
+            transition: 0.3s;
+        }
+
+        /* Hover effect for the dropzone */
+        [data-testid="stFileUploadDropzone"]:hover {
+            border: 2px solid #FF1493 !important;
+            background-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 15px #FF69B4;
+        }
+
+        /* Changing the "Drag and drop files here" text color */
+        [data-testid="stFileUploadDropzone"] div div span {
+            color: #4B0082 !important; /* Dark Indigo */
+            font-weight: bold;
+        }
+        
+        /* Changing the "Limit 200MB" small text color */
+        [data-testid="stFileUploadDropzone"] div div small {
+            color: #8A2BE2 !important; /* Blue Violet */
+        }
+
+        /* Global Text & Headers */
+        p, label, h1 {
             color: #FF1493 !important;
-            text-shadow: 0 0 10px #FFF, 0 0 20px #FF69B4;
-            text-align: center;
             font-family: 'Comic Sans MS', cursive, sans-serif;
         }
+        
+        p, label {
+            color: #4B0082 !important; /* Darker for readability */
+            font-weight: 600;
+        }
 
-        /* Fallender Glitzer Effekt (bleibt gleich) */
+        /* Glitter Animation */
         @keyframes glitter-fall {
-            0% { transform: translateY(-10vh) translateX(0) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(100vh) translateX(20px) rotate(360deg); opacity: 0; }
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
         }
 
         .glitter {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: white;
-            border-radius: 50%;
+            position: absolute; width: 8px; height: 8px;
+            background: white; border-radius: 50%;
             box-shadow: 0 0 10px #FFF, 0 0 20px #FF69B4;
             animation: glitter-fall 5s linear infinite;
-            z-index: 0; /* Hinter dem Inhalt */
-            pointer-events: none; /* Klicks gehen durch den Glitzer durch */
+            z-index: 0; pointer-events: none;
         }
 
         .g1 { left: 10%; animation-duration: 4s; }
-        .g2 { left: 30%; animation-duration: 6s; animation-delay: 1s; }
-        .g3 { left: 50%; animation-duration: 3s; animation-delay: 2s; }
-        .g4 { left: 70%; animation-duration: 7s; animation-delay: 0.5s; }
-        .g5 { left: 90%; animation-duration: 5s; animation-delay: 3s; }
-
-        /* Button Styling */
-        .stButton>button, .stDownloadButton>button {
-            background: linear-gradient(45deg, #FF69B4, #FF1493);
-            color: white !important;
-            border-radius: 50px;
-            border: 2px solid white;
-            box-shadow: 0 0 15px #FF1493;
-            transition: 0.3s;
-            font-weight: bold;
-        }
-        .stButton>button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px #FF1493;
-        }
+        .g2 { left: 30%; animation-duration: 6s; }
+        .g3 { left: 50%; animation-duration: 3s; }
+        .g4 { left: 70%; animation-duration: 7s; }
+        .g5 { left: 90%; animation-duration: 5s; }
         </style>
-        
+
         <div class="glitter g1"></div>
         <div class="glitter g2"></div>
         <div class="glitter g3"></div>
