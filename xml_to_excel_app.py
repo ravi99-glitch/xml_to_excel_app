@@ -128,7 +128,7 @@ def extract_xml_data_to_df(xml_file):
 st.set_page_config(page_title="Glitzer Converter", page_icon="✨")
 apply_glitter_rain()
 
-st.title("✨ XML Magic Converter ✨")
+st.title("✨ XML-Datenextraktion & Konvertierung ✨")
 # Dieser Text wird jetzt dunkel sein:
 st.write("Lade deine Dateien hoch und sieh zu, wie sie funkeln!") 
 
@@ -140,13 +140,26 @@ if uploaded_files:
     combined_df = pd.concat(dfs, ignore_index=True) if dfs else None
 
     if combined_df is not None and not combined_df.empty:
-        st.success("Dateien erfolgreich verarbeitet! ✨")
-        st.dataframe(combined_df)
+        st.success("Dateien erfolgreich verarbeitet!")
+        st.dataframe(combined_df, use_container_width=True)
         
-        excel_file = "glitzer_export.xlsx"
-        combined_df.to_excel(excel_file, index=False)
+        # --- DATUM IM DATEINAMEN ---
+        # Zeitstempel für Zürich holen
+        tz = pytz.timezone('Europe/Zurich')
+        now = datetime.now(tz)
+        datum_heute = now.strftime("%d.%m.%Y")
         
-        with open(excel_file, "rb") as f:
-            st.download_button("💖 Download Glitzer-Excel 💖", f, file_name=excel_file, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        excel_name = f"XML_Export_{datum_heute}.xlsx"
+        
+        # Datei erstellen
+        combined_df.to_excel(excel_name, index=False)
+        
+        with open(excel_name, "rb") as f:
+            st.download_button(
+                label=f"{excel_name} herunterladen",
+                data=f,
+                file_name=excel_name,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
     elif combined_df is not None and combined_df.empty:
-         st.warning("Die XML-Dateien konnten gelesen werden, enthielten aber keine passenden Daten.")
+         st.warning("Keine passenden Daten in den XML-Dateien gefunden.")
