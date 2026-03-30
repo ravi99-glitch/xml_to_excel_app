@@ -5,13 +5,10 @@ import pytz
 import io
 from datetime import datetime
 
-# --- LOGIK ZUR DATENEXTRAKTION ---
 def extract_xml_data_to_df(xml_file):
     try:
         tree = ET.parse(xml_file)
         root = tree.getroot()
-        
-        # Namespace-Handling
         namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
         ns = {"n": namespace} if namespace else {}
         
@@ -19,40 +16,38 @@ def extract_xml_data_to_df(xml_file):
         entries = root.findall('.//n:Ntry', ns) if ns else root.findall('.//Ntry')
 
         for entry in entries:
-            # 1. Datum
             bookg_date = entry.find('.//n:BookgDt//n:Dt', ns) if ns else entry.find('.//BookgDt//Dt')
-            date_val = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else ""
+            date_val = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else "Unbekannt"
             
-            # 2. Suche nach Transaktionsdetails (TxDtls)
+            # Suche nach ALLEN Transaktionsdetails (TxDtls) im Eintrag
             transactions = entry.findall('.//n:TxDtls', ns) if ns else entry.findall('.//TxDtls')
 
             if transactions:
                 for tx in transactions:
-                    # Tiefe Suche nach dem Namen des Einzahlers (Debtor)
-                    # Wir prüfen verschiedene Pfade, falls die Bank den Namen verschachtelt
-                    name_paths = [
+                    # Suche Namen in allen möglichen Feldern (Debtor, Ultimate Debtor, etc.)
+                    # Wir gehen hier sehr tief in die Struktur
+                    possible_name_paths = [
                         './/n:Dbtr/n:Nm', 
                         './/n:UltmtDbtr/n:Nm',
                         './/n:RltdPties/n:Dbtr/n:Nm',
-                        './/n:RltdPties/n:UltmtDbtr/n:Nm'
+                        './/n:RltdPties/n:Cdtr/n:Nm'
                     ]
                     
-                    name = "Name nicht in Datei gefunden"
-                    for path in name_paths:
+                    name = "Name nicht gefunden"
+                    for path in possible_name_paths:
                         found_node = tx.find(path, ns) if ns else tx.find(path.replace('n:', ''))
                         if found_node is not None and found_node.text:
                             name = found_node.text
                             break
 
-                    # Betrag
                     amt_node = tx.find('.//n:TxAmt//n:Amt', ns) or tx.find('.//n:Amt', ns)
                     betrag = float(amt_node.text) if amt_node is not None else 0.0
 
-                    # Bemerkung (Mitteilung oder Referenz)
+                    # Bemerkung extrahieren
                     ustrd = tx.find('.//n:RmtInf/n:Ustrd', ns)
                     ref = tx.find('.//n:RmtInf//n:Ref', ns)
                     bemerkung = (ustrd.text if ustrd is not None else "") + (" " + ref.text if ref is not None else "")
-
+                    
                     extracted_data.append({
                         "Datum": date_val,
                         "Mieter / Einzahler": name,
@@ -60,15 +55,19 @@ def extract_xml_data_to_df(xml_file):
                         "Bemerkung": bemerkung.strip() or "-"
                     })
             else:
-                # Spezialfall: Sammelbuchung ohne Details (wie in deiner UBS-Datei)
+                # Fallback für Dateien ohne Details (wie dein Screenshot)
                 amt_node = entry.find('./n:Amt', ns)
                 inf_node = entry.find('./n:AddtlNtryInf', ns)
                 
+                # Wenn wir im Infotext "Sammelbuchung" oder "QR reference" finden, 
+                # geben wir einen Hinweis auf die camt.054 Datei
+                info_text = inf_node.text if inf_node is not None else "Keine Details"
+                
                 extracted_data.append({
                     "Datum": date_val,
-                    "Mieter / Einzahler": "⚠️ Keine Details (Bitte camt.054 hochladen)",
+                    "Mieter / Einzahler": "⚠️ Fehlende Details (Bitte camt.054 nutzen)",
                     "Betrag": float(amt_node.text) if amt_node is not None else 0.0,
-                    "Bemerkung": inf_node.text if inf_node is not None else "Sammelbuchung"
+                    "Bemerkung": info_text
                 })
                 
         return pd.DataFrame(extracted_data)
@@ -77,29 +76,21 @@ def extract_xml_data_to_df(xml_file):
         return pd.DataFrame()
 
 # --- STREAMLIT UI ---
-st.set_page_config(page_title="Mieteingang-Konverter", page_icon="🏠", layout="wide")
+st.set_page_config(page_title="Mieteingangs-Tool", page_icon="🏢", layout="wide")
+st.title("🏢 Mieteingänge aus Bank-XML extrahieren")
 
-st.title("🏠 Bank-Export für Mieteingänge")
-st.info("Tipp: Wenn 'Keine Details' erscheint, lade zusätzlich die camt.054 Datei (Gutschriftsanzeige) aus deinem E-Banking hoch.")
-
-uploaded_files = st.file_uploader("XML-Dateien hochladen", accept_multiple_files=True, type=['xml'])
+uploaded_files = st.file_uploader("XML-Dateien hochladen (Tipp: camt.054 für volle Details)", accept_multiple_files=True, type=['xml'])
 
 if uploaded_files:
     dfs = [extract_xml_data_to_df(f) for f in uploaded_files]
-    combined_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+    final_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
-    if not combined_df.empty:
-        st.subheader("Extrahierte Zahlungen")
-        st.dataframe(combined_df, use_container_width=True)
+    if not final_df.empty:
+        st.subheader("Gefundene Zahlungen")
+        st.dataframe(final_df, use_container_width=True)
         
-        # Excel Export
+        # Excel Download
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            combined_df.to_excel(writer, index=False, sheet_name='Zahlungen')
-        
-        st.download_button(
-            label="📊 Als Excel herunterladen",
-            data=buffer.getvalue(),
-            file_name=f"Mieteingange_Export.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            final_df.to_excel(writer, index=False, sheet_name='Zahlungen')
+        st.download_button(label="📊 Excel herunterladen", data=buffer.getvalue(), file_name="Mieteingange.xlsx")
