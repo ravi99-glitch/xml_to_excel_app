@@ -10,75 +10,105 @@ def extract_xml_data_to_df(xml_file):
     try:
         tree = ET.parse(xml_file)
         root = tree.getroot()
-        # Namespace extrahieren
-        namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
-        extracted_data = []
         
-        # Suche nach Einträgen (Ntry)
-        entries = root.findall(f'.//{{{namespace}}}Ntry') if namespace else root.findall('.//Ntry')
+        # Namespace-Handling: Extrahiere den Namespace aus dem Root-Tag
+        namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
+        ns = {"n": namespace} if namespace else {}
+        
+        extracted_data = []
+        # Suche nach allen Buchungseinträgen (Ntry)
+        entries = root.findall('.//n:Ntry', ns) if ns else root.findall('.//Ntry')
 
         for entry in entries:
-            bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt') if namespace else entry.find('.//BookgDt//Dt')
-            bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else None
+            # 1. Buchungsdatum finden
+            bookg_date = entry.find('.//n:BookgDt//n:Dt', ns) if ns else entry.find('.//BookgDt//Dt')
+            bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else "Unbekannt"
             
-            transactions = entry.findall(f'.//{{{namespace}}}TxDtls') if namespace else entry.findall('.//TxDtls')
+            # 2. Prüfen, ob detaillierte Transaktionsinformationen (TxDtls) vorhanden sind
+            transactions = entry.findall('.//n:TxDtls', ns) if ns else entry.findall('.//TxDtls')
 
-            for transaction in transactions:
+            if transactions:
+                # Fall A: Einzeltransaktionen sind vorhanden
+                for transaction in transactions:
+                    data = {
+                        "Buchungsdatum": bookg_date_str,
+                        "Transaktionsbetrag": None,
+                        "Währung": "CHF",
+                        "Debitor/Info": "Nicht gefunden"
+                    }
+                    
+                    # Betrag und Währung
+                    tx_amt = transaction.find('.//n:TxAmt//n:Amt', ns) if ns else transaction.find('.//TxAmt//Amt')
+                    if tx_amt is not None:
+                        data["Währung"] = tx_amt.attrib.get("Ccy", "CHF")
+                        data["Transaktionsbetrag"] = float(tx_amt.text)
+
+                    # Debitor Name
+                    dbtr_name = transaction.find('.//n:Dbtr//n:Nm', ns) if ns else transaction.find('.//Dbtr//Nm')
+                    if dbtr_name is not None:
+                        data["Debitor/Info"] = dbtr_name.text
+                    
+                    extracted_data.append(data)
+            else:
+                # Fall B: Sammelbuchung (Daten liegen direkt auf Ntry-Ebene, wie in deiner Datei)
+                amt_node = entry.find('./n:Amt', ns) if ns else entry.find('./Amt')
+                inf_node = entry.find('./n:AddtlNtryInf', ns) if ns else entry.find('./AddtlNtryInf')
+                
                 data = {
                     "Buchungsdatum": bookg_date_str,
-                    "Transaktionsbetrag": None,
-                    "Debitor": None
+                    "Transaktionsbetrag": float(amt_node.text) if amt_node is not None else 0.0,
+                    "Währung": amt_node.attrib.get('Ccy', 'CHF') if amt_node is not None else "CHF",
+                    "Debitor/Info": inf_node.text if inf_node is not None else "Sammelbuchung / Keine Details"
                 }
-                
-                # Betrag und Währung
-                tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt') if namespace else transaction.find('.//TxAmt//Amt')
-                if tx_amt is not None:
-                    currency = tx_amt.attrib.get("Ccy", "CHF")
-                    data["Transaktionsbetrag"] = f"{currency} {float(tx_amt.text):,.2f}"
-
-                # Debitor Name
-                dbtr_name = transaction.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}Nm') if namespace else transaction.find('.//Dbtr//Nm')
-                if dbtr_name is not None:
-                    data["Debitor"] = dbtr_name.text
-
                 extracted_data.append(data)
+                
         return pd.DataFrame(extracted_data)
     except Exception as e:
-        st.error(f"Fehler bei der Verarbeitung: {e}")
+        st.error(f"Fehler bei der Verarbeitung einer Datei: {e}")
         return pd.DataFrame()
 
-# --- APP START ---
-st.set_page_config(page_title="XML Converter", page_icon="📄")
+# --- STREAMLIT UI ---
+st.set_page_config(page_title="XML Converter", page_icon="📊", layout="wide")
 
-st.title("XML-Datenextraktion & Konvertierung")
-st.write("Laden Sie Ihre XML-Dateien hoch, um sie in eine konsolidierte Excel-Liste umzuwandeln.")
+st.title("📊 Professioneller XML Daten-Export")
+st.info("Dieses Tool konvertiert CAMT-Bankdateien (z.B. von UBS, Credit Suisse, ZKB) in eine übersichtliche Excel-Liste.")
 
-uploaded_files = st.file_uploader("XML-Dateien auswählen", accept_multiple_files=True, type=['xml'])
+uploaded_files = st.file_uploader("XML-Dateien hier hochladen", accept_multiple_files=True, type=['xml'])
 
 if uploaded_files:
-    dfs = [extract_xml_data_to_df(f) for f in uploaded_files]
-    combined_df = pd.concat(dfs, ignore_index=True) if dfs else None
-
-    if combined_df is not None and not combined_df.empty:
-        st.success("Dateien erfolgreich verarbeitet!")
+    all_dfs = []
+    for f in uploaded_files:
+        df = extract_xml_data_to_df(f)
+        if not df.empty:
+            all_dfs.append(df)
+    
+    if all_dfs:
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        
+        # Anzeige in der App
+        st.subheader("Vorschau der extrahierten Daten")
         st.dataframe(combined_df, use_container_width=True)
         
-        # --- EXCEL EXPORT (IM SPEICHER) ---
+        # --- EXCEL EXPORT ---
+        # Zeitstempel für den Dateinamen
         tz = pytz.timezone('Europe/Zurich')
         now = datetime.now(tz)
-        datum_heute = now.strftime("%d.%m.%Y")
-        excel_name = f"XML_Export_{datum_heute}.xlsx"
+        datum_heute = now.strftime("%Y-%m-%d_%H-%M")
+        excel_name = f"Bank_Export_{datum_heute}.xlsx"
         
-        # BytesIO nutzen, um Datei im RAM zu halten
+        # Datei im RAM erstellen
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            combined_df.to_excel(writer, index=False, sheet_name='Daten')
+            combined_df.to_excel(writer, index=False, sheet_name='Banktransaktionen')
         
         st.download_button(
-            label="Excel-Datei herunterladen",
+            label="✅ Excel-Datei herunterladen",
             data=buffer.getvalue(),
             file_name=excel_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-    elif combined_df is not None and combined_df.empty:
-        st.warning("Keine passenden Daten in den XML-Dateien gefunden.")
+    else:
+        st.warning("In den hochgeladenen Dateien wurden keine verwertbaren Buchungsdaten gefunden.")
+
+st.markdown("---")
+st.caption("Hinweis: Dieses Tool verarbeitet die Daten lokal im Browser-Kontext und speichert keine Bankdaten dauerhaft.")
