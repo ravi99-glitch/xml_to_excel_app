@@ -5,11 +5,12 @@ import pytz
 import io
 from datetime import datetime
 
-# --- PRO-LOGIK: DATUMSSORTIERUNG & 2-SPALTEN-LAYOUT ---
+# --- VERBESSERTE EXTRAKTIONS-LOGIK ---
 def extract_xml_data_to_df(xml_file):
     try:
         tree = ET.parse(xml_file)
         root = tree.getroot()
+        # Namespace-Handling
         namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
         ns = {"n": namespace} if namespace else {}
         
@@ -17,15 +18,15 @@ def extract_xml_data_to_df(xml_file):
         entries = root.findall('.//n:Ntry', ns) if ns else root.findall('.//Ntry')
 
         for entry in entries:
-            # Eindeutige ID
+            # 1. Bank-Referenz
             bank_ref = entry.find('.//n:AcctSvcrRef', ns)
             ref_id = bank_ref.text if bank_ref is not None else "Keine ID"
             
-            # DATUM: Wir speichern es hier als echtes Datum-Objekt (für die Sortierung)
+            # 2. Datum
             bookg_date = entry.find('.//n:BookgDt//n:Dt', ns) if ns else entry.find('.//BookgDt//Dt')
             date_obj = pd.to_datetime(bookg_date.text) if bookg_date is not None else None
             
-            # Richtung bestimmen
+            # 3. Richtung bestimmen
             indicator = entry.find('.//n:CdtDbtInd', ns)
             is_credit = indicator is not None and indicator.text == "CRDT"
 
@@ -56,7 +57,7 @@ def extract_xml_data_to_df(xml_file):
                     gutschrift = betrag if is_credit else 0.0
                     belastung = betrag if not is_credit else 0.0
 
-                    # Zusatzinfo (Feld 2430...)
+                    # Zusatzinfo (Das Feld 2430...)
                     qr_zusatz = tx.find('.//n:RmtInf/n:Strd/n:AddtlRmtInf', ns)
                     tx_zusatz = tx.find('.//n:AddtlTxInf', ns)
                     final_zusatz = qr_zusatz.text if qr_zusatz is not None else (tx_zusatz.text if tx_zusatz is not None else entry_inf_text)
@@ -68,29 +69,32 @@ def extract_xml_data_to_df(xml_file):
 
                     extracted_data.append({
                         "ID": ref_id,
-                        "Datum_Raw": date_obj, # Versteckte Spalte zum Sortieren
+                        "Datum_Raw": date_obj, 
                         "Partner / Mieter": name,
                         "Eingang (+)": gutschrift,
                         "Ausgang (-)": belastung,
                         "Bemerkung / Ref": bemerkung.strip(" | ") or "-",
-                        "Zusatzinfo (z.B. 2430...)": final_zusatz or "-",
+                        "Zusatzinfo": final_zusatz or "-", # Spaltenname vereinheitlicht
                         "Quelle": xml_file.name
                     })
             else:
                 amt_node = entry.find('./n:Amt', ns)
                 val = float(amt_node.text) if amt_node is not None else 0.0
                 extracted_data.append({
-                    "ID": ref_id, "Datum_Raw": date_obj, "Partner / Mieter": None,
+                    "ID": ref_id, 
+                    "Datum_Raw": date_obj, 
+                    "Partner / Mieter": None,
                     "Eingang (+)": val if is_credit else 0.0,
                     "Ausgang (-)": val if not is_credit else 0.0,
-                    "Bemerkung / Ref": "-", "Zusatzinfo (z.B. 2430...)": entry_inf_text,
+                    "Bemerkung / Ref": "-", 
+                    "Zusatzinfo": entry_inf_text or "Sammelbuchung", # Spaltenname vereinheitlicht
                     "Quelle": xml_file.name
                 })
         return pd.DataFrame(extracted_data)
     except Exception:
         return pd.DataFrame()
 
-# --- APP ---
+# --- APP START ---
 st.set_page_config(page_title="XML-Konverter", layout="wide")
 st.title("🏠 XML-Konverter für Rechnungen")
 
@@ -101,10 +105,7 @@ if files:
     df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
 
     if not df.empty:
-        # --- SORTIER- UND FILTERPROZESS ---
-        
-        # 1. Sortieren: Zuerst nach Datum (aufsteigend), 
-        # dann nach ID und dann Name absteigend (damit bei Duplikaten der Name oben steht)
+        # 1. Sortieren
         df = df.sort_values(by=["Datum_Raw", "ID", "Partner / Mieter"], ascending=[True, True, False], na_position='last')
         
         # 2. Duplikate markieren
@@ -112,19 +113,18 @@ if files:
         is_dup = df.duplicated(subset=["ID", "Eingang (+)", "Ausgang (-)"], keep='first')
         df.loc[is_dup, "Status"] = "📂 Duplikat"
         
-        # 3. Datum für den Menschen formatieren (DD.MM.YYYY)
+        # 3. Datum formatieren
         df["Datum"] = df["Datum_Raw"].dt.strftime('%d.%m.%Y')
-        
         df["Partner / Mieter"] = df["Partner / Mieter"].fillna("Keine Details")
 
-        # 4. Spalten für die Anzeige anordnen
+        # 4. Spalten für die Anzeige (Hier lag der Fehler: Zusatzinfo muss exakt übereinstimmen)
         cols = ["Status", "Datum", "Partner / Mieter", "Eingang (+)", "Ausgang (-)", "Bemerkung / Ref", "Zusatzinfo", "Quelle"]
         final_df = df[cols]
         
         st.subheader("Chronologische Buchungsübersicht")
         st.dataframe(final_df, use_container_width=True)
         
-        # Metriken (nur Originale!)
+        # Metriken
         original_df = df[df["Status"] == "✅ Original"]
         tot_in = original_df["Eingang (+)"].sum()
         tot_out = original_df["Ausgang (-)"].sum()
