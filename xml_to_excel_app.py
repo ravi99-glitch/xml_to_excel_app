@@ -5,132 +5,111 @@ import pytz
 import io
 from datetime import datetime
 
-# --- VERBESSERTE EXTRAKTIONS-LOGIK ---
+# --- EXTRAKTIONS-LOGIK MIT ZUSÄTZLICHEN INFOS ---
 def extract_xml_data_to_df(xml_file):
     try:
         tree = ET.parse(xml_file)
         root = tree.getroot()
-        
-        # Namespace automatisch erkennen
         namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
         ns = {"n": namespace} if namespace else {}
         
         extracted_data = []
-        # Alle Buchungseinträge finden
         entries = root.findall('.//n:Ntry', ns) if ns else root.findall('.//Ntry')
 
         for entry in entries:
-            # 1. Datum extrahieren
-            bookg_date = entry.find('.//n:BookgDt//n:Dt', ns) if ns else entry.find('.//BookgDt//Dt')
-            date_val = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else "Unbekannt"
+            # Bank-ID für Duplikat-Check
+            bank_ref = entry.find('.//n:AcctSvcrRef', ns)
+            ref_id = bank_ref.text if bank_ref is not None else "Keine ID"
             
-            # 2. Transaktionsdetails suchen (TxDtls)
+            # Datum & Art
+            bookg_date = entry.find('.//n:BookgDt//n:Dt', ns) if ns else entry.find('.//BookgDt//Dt')
+            date_val = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else ""
+            
+            indicator = entry.find('.//n:CdtDbtInd', ns)
+            typ = "Gutschrift" if indicator is not None and indicator.text == "CRDT" else "Belastung"
+
+            # Information auf Beleg-Ebene (Entry)
+            entry_addtl_inf = entry.find('./n:AddtlNtryInf', ns)
+            entry_inf_text = entry_addtl_inf.text if entry_addtl_inf is not None else ""
+
             transactions = entry.findall('.//n:TxDtls', ns) if ns else entry.findall('.//TxDtls')
 
             if transactions:
-                # Mehrere Transaktionen pro Buchung möglich (z.B. Sammelgutschrift)
                 for tx in transactions:
-                    # --- MIETER / EINZAHLER FINDEN ---
-                    # Wir suchen in allen möglichen Namensfeldern
-                    dbtr_name = tx.find('.//n:Dbtr//n:Nm', ns) 
-                    ultmt_dbtr = tx.find('.//n:UltmtDbtr//n:Nm', ns)
-                    
-                    if dbtr_name is not None:
-                        name = dbtr_name.text
-                    elif ultmt_dbtr is not None:
-                        name = ultmt_dbtr.text
-                    else:
-                        name = "Name nicht im Datensatz"
+                    # Partner finden
+                    dbtr_name = tx.find('.//n:Dbtr//n:Nm', ns) or tx.find('.//n:UltmtDbtr//n:Nm', ns)
+                    cdtr_name = tx.find('.//n:Cdtr//n:Nm', ns)
+                    name = dbtr_name.text if dbtr_name is not None else (f"An: {cdtr_name.text}" if cdtr_name is not None else None)
 
-                    # --- BETRAG ---
-                    amt_node = tx.find('.//n:TxAmt//n:Amt', ns)
+                    # Betrag
+                    amt_node = tx.find('.//n:TxAmt//n:Amt', ns) or tx.find('.//n:Amt', ns)
                     betrag = float(amt_node.text) if amt_node is not None else 0.0
 
-                    # --- BEMERKUNG / REFERENZ ---
-                    # Suche nach unstrukturierter Mitteilung (Ustrd) oder QR-Referenz (Ref)
-                    remittance = tx.find('.//n:RmtInf//n:Ustrd', ns)
-                    qr_ref = tx.find('.//n:RmtInf//n:Strd//n:CdtrRefInf//n:Ref', ns)
-                    
-                    bemerkung_parts = []
-                    if remittance is not None: bemerkung_parts.append(remittance.text)
-                    if qr_ref is not None: bemerkung_parts.append(f"QR-Ref: {qr_ref.text}")
-                    
-                    bemerkung = " | ".join(bemerkung_parts) if bemerkung_parts else "-"
+                    # Bemerkung (Mitteilung / Referenz)
+                    ustrd = tx.find('.//n:RmtInf/n:Ustrd', ns)
+                    ref = tx.find('.//n:RmtInf//n:Ref', ns)
+                    bemerkung = (ustrd.text if ustrd is not None else "") + (" " + ref.text if ref is not None else "")
+
+                    # Zusätzliche Transaktions-Info (TxInf)
+                    tx_addtl_inf = tx.find('.//n:AddtlTxInf', ns)
+                    zusatz_info = tx_addtl_inf.text if tx_addtl_inf is not None else entry_inf_text
 
                     extracted_data.append({
+                        "ID": ref_id,
                         "Datum": date_val,
-                        "Mieter / Einzahler": name,
+                        "Art": typ,
+                        "Partner / Mieter": name,
                         "Betrag": betrag,
-                        "Bemerkung": bemerkung
+                        "Bemerkung": bemerkung.strip() or "-",
+                        "Zusätzliche Informationen": zusatz_info or "-"
                     })
             else:
-                # FALLBACK: Falls keine TxDtls da sind (wie in deinem UBS-Beispiel)
-                # Hier nehmen wir die Infos direkt aus dem Ntry-Block
-                amt_node = entry.find('./n:Amt', ns) if ns else entry.find('./Amt')
-                inf_node = entry.find('./n:AddtlNtryInf', ns) if ns else entry.find('./AddtlNtryInf')
-                
-                # In Sammelbuchungen steht der Name oft im Infotext
-                info_text = inf_node.text if inf_node is not None else "Keine Details vorhanden"
-                
+                # Fallback für Sammelbuchungen
+                amt_node = entry.find('./n:Amt', ns)
                 extracted_data.append({
+                    "ID": ref_id,
                     "Datum": date_val,
-                    "Mieter / Einzahler": "Sammelbuchung (siehe Bemerkung)",
+                    "Art": typ,
+                    "Partner / Mieter": None,
                     "Betrag": float(amt_node.text) if amt_node is not None else 0.0,
-                    "Bemerkung": info_text
+                    "Bemerkung": "-",
+                    "Zusätzliche Informationen": entry_inf_text or "Sammelbuchung"
                 })
                 
         return pd.DataFrame(extracted_data)
     except Exception as e:
-        st.error(f"Fehler bei der Analyse der XML: {e}")
         return pd.DataFrame()
 
-# --- STREAMLIT OBERFLÄCHE ---
-st.set_page_config(page_title="Mieteingangs-Tool", page_icon="🏢", layout="wide")
+# --- STREAMLIT UI ---
+st.set_page_config(page_title="Mieteingang-Konverter", page_icon="🏠", layout="wide")
+st.title("🏠 Bank-XML Konverter (inkl. Zusatzinfos)")
 
-st.title("🏢 Mieteingänge aus Bank-XML extrahieren")
-st.markdown("""
-Lade deine Bankdateien (**camt.053** oder **camt.054**) hoch. 
-Das Tool sucht automatisch nach den Namen der Mieter, den Beträgen und den Zahlungsreferenzen.
-""")
-
-uploaded_files = st.file_uploader("XML-Dateien hier reinziehen", accept_multiple_files=True, type=['xml'])
+uploaded_files = st.file_uploader("XML-Dateien hochladen", accept_multiple_files=True, type=['xml'])
 
 if uploaded_files:
-    all_data = []
-    for f in uploaded_files:
-        df = extract_xml_data_to_df(f)
-        if not df.empty:
-            all_data.append(df)
-            
-    if all_data:
-        final_df = pd.concat(all_data, ignore_index=True)
+    all_dfs = [extract_xml_data_to_df(f) for f in uploaded_files]
+    if all_dfs:
+        df = pd.concat(all_dfs, ignore_index=True)
         
-        # Anzeige der Tabelle
-        st.subheader("Gefundene Zahlungen")
-        # Betrag formatieren für die Anzeige
-        display_df = final_df.copy()
-        display_df['Betrag'] = display_df['Betrag'].map('{:,.2f} CHF'.format)
-        st.dataframe(display_df, use_container_width=True)
+        # Duplikate filtern (ID und Betrag) - Bevorzugt Zeilen mit Namen
+        df = df.sort_values(by="Partner / Mieter", ascending=False)
+        df = df.drop_duplicates(subset=["ID", "Betrag"], keep="first")
         
-        # Statistiken
-        st.write(f"**Anzahl Zahlungen:** {len(final_df)} | **Gesamtsumme:** {final_df['Betrag'].sum():,.2f} CHF")
-
+        df["Partner / Mieter"] = df["Partner / Mieter"].fillna("Details in camt.054 suchen")
+        
+        # Neue Spaltenreihenfolge inkl. "Zusätzliche Informationen"
+        final_df = df[["Datum", "Art", "Partner / Mieter", "Betrag", "Bemerkung", "Zusätzliche Informationen"]]
+        
+        st.subheader("Extrahiert & Bereinigt")
+        st.dataframe(final_df, use_container_width=True)
+        
+        # Summen
+        gut_sum = final_df[final_df["Art"] == "Gutschrift"]["Betrag"].sum()
+        st.metric("Gesamtsumme Gutschriften", f"{gut_sum:,.2f} CHF")
+        
         # Excel Export
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            final_df.to_excel(writer, index=False, sheet_name='Mieteingänge')
+            final_df.to_excel(writer, index=False, sheet_name='Zahlungsliste')
         
-        tz = pytz.timezone('Europe/Zurich')
-        date_str = datetime.now(tz).strftime("%d.%m.%Y_%H%M")
-        
-        st.download_button(
-            label="📊 Diese Liste als Excel speichern",
-            data=buffer.getvalue(),
-            file_name=f"Mieteingange_{date_str}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    else:
-        st.warning("Keine Buchungsdaten gefunden. Stelle sicher, dass die XML-Datei Zahlungen enthält.")
-
-st.divider()
-st.caption("Dieses Tool ist für Schweizer Bankformate (ISO 20022) optimiert.")
+        st.download_button(label="📊 Als Excel speichern", data=buffer.getvalue(), file_name="Bank_Export_Zusatzinfos.xlsx")
