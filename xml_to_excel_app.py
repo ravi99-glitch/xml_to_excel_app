@@ -5,31 +5,28 @@ import pytz
 import io
 from datetime import datetime
 
-# --- VERBESSERTE EXTRAKTIONS-LOGIK ---
+# --- PRO-LOGIK: GETRENNTE SPALTEN FÜR SOLL/HABEN ---
 def extract_xml_data_to_df(xml_file):
     try:
         tree = ET.parse(xml_file)
         root = tree.getroot()
-        # Namespace-Handling
         namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
         ns = {"n": namespace} if namespace else {}
         
         extracted_data = []
-        entries = root.findall('.//n:Ntry', ns) if ns else root.findall('.//Ntry')
+        entries = root.findall('.//n:Ntry', ns) if ns else root.findall('.//n:Ntry', ns)
 
         for entry in entries:
-            # 1. Bank-Referenz (Eindeutige ID für Duplikat-Erkennung)
             bank_ref = entry.find('.//n:AcctSvcrRef', ns)
             ref_id = bank_ref.text if bank_ref is not None else "Keine ID"
             
-            # 2. Datum & Buchungstyp
             bookg_date = entry.find('.//n:BookgDt//n:Dt', ns) if ns else entry.find('.//BookgDt//Dt')
             date_val = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else ""
             
+            # Richtung bestimmen: CRDT (Gutschrift) oder DBIT (Belastung)
             indicator = entry.find('.//n:CdtDbtInd', ns)
-            typ = "Gutschrift" if indicator is not None and indicator.text == "CRDT" else "Belastung"
+            is_credit = indicator is not None and indicator.text == "CRDT"
 
-            # 3. Allgemeine Bank-Information (Entry-Level)
             entry_inf = entry.find('./n:AddtlNtryInf', ns)
             entry_inf_text = entry_inf.text if entry_inf is not None else ""
 
@@ -37,7 +34,7 @@ def extract_xml_data_to_df(xml_file):
 
             if transactions:
                 for tx in transactions:
-                    # --- MIETER-SUCHE (DEEP SCAN) ---
+                    # Mieter-Suche
                     possible_names = [
                         tx.find('.//n:Dbtr/n:Nm', ns), 
                         tx.find('.//n:UltmtDbtr/n:Nm', ns),
@@ -46,22 +43,23 @@ def extract_xml_data_to_df(xml_file):
                     ]
                     name = next((node.text for node in possible_names if node is not None and node.text), None)
                     
-                    if not name and typ == "Belastung":
+                    if not name and not is_credit:
                         cdtr = tx.find('.//n:Cdtr/n:Nm', ns)
                         if cdtr is not None: name = f"An: {cdtr.text}"
 
-                    # --- BETRAG ---
                     amt_node = tx.find('.//n:TxAmt//n:Amt', ns) or tx.find('.//n:Amt', ns)
                     betrag = float(amt_node.text) if amt_node is not None else 0.0
 
-                    # --- ZUSÄTZLICHE INFORMATIONEN (Das Feld aus deinem Bild) ---
-                    # Wir suchen gezielt nach AddtlRmtInf (QR-Zusatzinfo 2430...)
+                    # Zuteilung auf zwei Spalten
+                    gutschrift = betrag if is_credit else 0.0
+                    belastung = betrag if not is_credit else 0.0
+
+                    # Zusatzinfo (Feld 2430...)
                     qr_zusatz = tx.find('.//n:RmtInf/n:Strd/n:AddtlRmtInf', ns)
                     tx_zusatz = tx.find('.//n:AddtlTxInf', ns)
-                    
                     final_zusatz = qr_zusatz.text if qr_zusatz is not None else (tx_zusatz.text if tx_zusatz is not None else entry_inf_text)
 
-                    # --- BEMERKUNG / REFERENZ ---
+                    # Referenz
                     ref = tx.find('.//n:RmtInf//n:Ref', ns)
                     ustrd = tx.find('.//n:RmtInf/n:Ustrd', ns)
                     bemerkung = (ref.text if ref is not None else "") + (" | " + ustrd.text if ustrd is not None else "")
@@ -69,19 +67,20 @@ def extract_xml_data_to_df(xml_file):
                     extracted_data.append({
                         "ID": ref_id,
                         "Datum": date_val,
-                        "Art": typ,
                         "Partner / Mieter": name,
-                        "Betrag": betrag,
+                        "Eingang (+)": gutschrift,
+                        "Ausgang (-)": belastung,
                         "Bemerkung / Ref": bemerkung.strip(" | ") or "-",
                         "Zusatzinfo (z.B. 2430...)": final_zusatz or "-",
                         "Quelle": xml_file.name
                     })
             else:
-                # Fallback für Sammelbuchungen ohne Transaktionsdetails
                 amt_node = entry.find('./n:Amt', ns)
+                val = float(amt_node.text) if amt_node is not None else 0.0
                 extracted_data.append({
-                    "ID": ref_id, "Datum": date_val, "Art": typ, "Partner / Mieter": None,
-                    "Betrag": float(amt_node.text) if amt_node is not None else 0.0,
+                    "ID": ref_id, "Datum": date_val, "Partner / Mieter": None,
+                    "Eingang (+)": val if is_credit else 0.0,
+                    "Ausgang (-)": val if not is_credit else 0.0,
                     "Bemerkung / Ref": "-", "Zusatzinfo (z.B. 2430...)": entry_inf_text,
                     "Quelle": xml_file.name
                 })
@@ -89,54 +88,50 @@ def extract_xml_data_to_df(xml_file):
     except Exception:
         return pd.DataFrame()
 
-# --- STREAMLIT OBERFLÄCHE ---
-st.set_page_config(page_title="Mieteingang-Konverter", layout="wide")
-st.title("🏠 Bank-XML Master-Konverter")
-st.markdown("Lade `camt.053` und `camt.054` Dateien hoch. Duplikate werden markiert, aber nicht gelöscht.")
+# --- STREAMLIT UI ---
+st.set_page_config(page_title="Finanz-Konverter Pro", layout="wide")
+st.title("🏠 Bank-Export Professional (2-Spalten-Layout)")
 
-files = st.file_uploader("XML-Dateien auswählen", accept_multiple_files=True, type=['xml'])
+files = st.file_uploader("XML-Dateien hochladen", accept_multiple_files=True, type=['xml'])
 
 if files:
     all_dfs = [extract_xml_data_to_df(f) for f in files]
     df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
 
     if not df.empty:
-        # --- INTELLIGENTE SORTIERUNG & DUPLIKAT-CHECK ---
-        # Wir sortieren so, dass Zeilen MIT Mietername (aus camt.054) oben stehen
+        # Sortierung: Namen bevorzugen für Duplikat-Check
         df = df.sort_values(by=["ID", "Partner / Mieter"], ascending=[True, False], na_position='last')
         
-        # Duplikat-Vermerk setzen
         df["Status"] = "✅ Original"
-        is_dup = df.duplicated(subset=["ID", "Betrag"], keep='first')
+        is_dup = df.duplicated(subset=["ID", "Eingang (+)", "Ausgang (-)"], keep='first')
         df.loc[is_dup, "Status"] = "📂 Duplikat"
         
-        df["Partner / Mieter"] = df["Partner / Mieter"].fillna("Keine Details (siehe Zusatzinfo)")
+        df["Partner / Mieter"] = df["Partner / Mieter"].fillna("Keine Details")
 
-        # Spalten-Anordnung
-        final_df = df[["Status", "Datum", "Art", "Partner / Mieter", "Betrag", "Bemerkung / Ref", "Zusatzinfo (z.B. 2430...)", "Quelle"]]
+        # Spaltenreihenfolge für Profis
+        cols = ["Status", "Datum", "Partner / Mieter", "Eingang (+)", "Ausgang (-)", "Bemerkung / Ref", "Zusatzinfo (z.B. 2430...)", "Quelle"]
+        final_df = df[cols]
         
-        # Anzeige
-        st.subheader("Extrahierte Transaktionen")
+        st.subheader("Buchungsübersicht")
         st.dataframe(final_df, use_container_width=True)
         
-        # Metriken (Summen nur von Originalen!)
+        # Metriken
         original_df = df[df["Status"] == "✅ Original"]
-        einnahmen = original_df[original_df["Art"] == "Gutschrift"]["Betrag"].sum()
-        ausgaben = original_df[original_df["Art"] == "Belastung"]["Betrag"].sum()
+        tot_in = original_df["Eingang (+)"].sum()
+        tot_out = original_df["Ausgang (-)"].sum()
         
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Anzahl (Originale)", len(original_df))
-        col2.metric("Summe Gutschriften", f"{einnahmen:,.2f} CHF")
-        col3.metric("Summe Belastungen", f"{ausgaben:,.2f} CHF")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Anzahl Buchungen", len(original_df))
+        c2.metric("Total Eingänge", f"{tot_in:,.2f} CHF", delta_color="normal")
+        c3.metric("Total Ausgänge", f"{tot_out:,.2f} CHF", delta="-")
         
         # Excel Export
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            final_df.to_excel(writer, index=False, sheet_name='Zahlungen')
+            final_df.to_excel(writer, index=False, sheet_name='Kontoauszug')
         
         st.download_button(
-            label="📊 Als Excel speichern",
+            label="📊 Professionelle Excel-Liste speichern",
             data=buffer.getvalue(),
-            file_name=f"Bank_Export_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            file_name=f"Bank_Pro_Export_{datetime.now().strftime('%d_%m_%Y')}.xlsx"
         )
