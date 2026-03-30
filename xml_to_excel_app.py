@@ -82,7 +82,7 @@ def extract_xml_data_to_df(xml_file):
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Mieteingang-Konverter", page_icon="🏠", layout="wide")
-st.title("🏠 Bank-XML Konverter (inkl. Zusatzinfos)")
+st.title("🏠 XML Konverter für Zahlungen")
 
 uploaded_files = st.file_uploader("XML-Dateien hochladen", accept_multiple_files=True, type=['xml'])
 
