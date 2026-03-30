@@ -2,108 +2,26 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import streamlit as st
 import pytz
-import openpyxl
+import io
 from datetime import datetime
 
-# --- ULTIMATE PINK & FALLING GLITTER STYLING (Update) ---
-def apply_glitter_rain():
-    st.markdown(
-        """
-        <style>
-        /* Main background */
-        .stApp {
-            background: linear-gradient(to bottom, #FFF0F5, #FFB6C1);
-            background-attachment: fixed;
-        }
-
-        /* --- DRAG AND DROP FIELD MATCHING --- */
-        /* Targets the outer container of the uploader */
-        [data-testid="stFileUploader"] {
-            background-color: rgba(255, 182, 193, 0.3); /* Soft pink overlay */
-            border-radius: 20px;
-            padding: 20px;
-        }
-
-        /* Targets the actual dropzone box */
-        [data-testid="stFileUploadDropzone"] {
-            background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white */
-            border: 2px dashed #FF1493 !important; /* Hot pink dashed border */
-            border-radius: 15px;
-            transition: 0.3s;
-        }
-
-        /* Hover effect for the dropzone */
-        [data-testid="stFileUploadDropzone"]:hover {
-            border: 2px solid #FF1493 !important;
-            background-color: rgba(255, 255, 255, 0.8);
-            box-shadow: 0 0 15px #FF69B4;
-        }
-
-        /* Changing the "Drag and drop files here" text color */
-        [data-testid="stFileUploadDropzone"] div div span {
-            color: #4B0082 !important; /* Dark Indigo */
-            font-weight: bold;
-        }
-        
-        /* Changing the "Limit 200MB" small text color */
-        [data-testid="stFileUploadDropzone"] div div small {
-            color: #8A2BE2 !important; /* Blue Violet */
-        }
-
-        /* Global Text & Headers */
-        p, label, h1 {
-            color: #FF1493 !important;
-            font-family: 'Comic Sans MS', cursive, sans-serif;
-        }
-        
-        p, label {
-            color: #4B0082 !important; /* Darker for readability */
-            font-weight: 600;
-        }
-
-        /* Glitter Animation */
-        @keyframes glitter-fall {
-            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-        }
-
-        .glitter {
-            position: absolute; width: 8px; height: 8px;
-            background: white; border-radius: 50%;
-            box-shadow: 0 0 10px #FFF, 0 0 20px #FF69B4;
-            animation: glitter-fall 5s linear infinite;
-            z-index: 0; pointer-events: none;
-        }
-
-        .g1 { left: 10%; animation-duration: 4s; }
-        .g2 { left: 30%; animation-duration: 6s; }
-        .g3 { left: 50%; animation-duration: 3s; }
-        .g4 { left: 70%; animation-duration: 7s; }
-        .g5 { left: 90%; animation-duration: 5s; }
-        </style>
-
-        <div class="glitter g1"></div>
-        <div class="glitter g2"></div>
-        <div class="glitter g3"></div>
-        <div class="glitter g4"></div>
-        <div class="glitter g5"></div>
-        """,
-        unsafe_allow_html=True
-    )
-
+# --- LOGIK ZUR DATENEXTRAKTION ---
 def extract_xml_data_to_df(xml_file):
-    # (Dieser Teil bleibt unverändert, da er nur die Logik enthält)
     try:
         tree = ET.parse(xml_file)
         root = tree.getroot()
-        namespace = root.tag.split('}')[0].strip('{')
+        # Namespace extrahieren
+        namespace = root.tag.split('}')[0].strip('{') if '}' in root.tag else ''
         extracted_data = []
-        entries = root.findall(f'.//{{{namespace}}}Ntry')
+        
+        # Suche nach Einträgen (Ntry)
+        entries = root.findall(f'.//{{{namespace}}}Ntry') if namespace else root.findall('.//Ntry')
 
         for entry in entries:
-            bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt')
+            bookg_date = entry.find(f'.//{{{namespace}}}BookgDt//{{{namespace}}}Dt') if namespace else entry.find('.//BookgDt//Dt')
             bookg_date_str = pd.to_datetime(bookg_date.text).strftime('%d.%m.%Y') if bookg_date is not None else None
-            transactions = entry.findall(f'.//{{{namespace}}}TxDtls')
+            
+            transactions = entry.findall(f'.//{{{namespace}}}TxDtls') if namespace else entry.findall('.//TxDtls')
 
             for transaction in transactions:
                 data = {
@@ -111,30 +29,31 @@ def extract_xml_data_to_df(xml_file):
                     "Transaktionsbetrag": None,
                     "Debitor": None
                 }
-                tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt')
+                
+                # Betrag und Währung
+                tx_amt = transaction.find(f'.//{{{namespace}}}TxAmt//{{{namespace}}}Amt') if namespace else transaction.find('.//TxAmt//Amt')
                 if tx_amt is not None:
                     currency = tx_amt.attrib.get("Ccy", "CHF")
                     data["Transaktionsbetrag"] = f"{currency} {float(tx_amt.text):,.2f}"
 
-                dbtr_name = transaction.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}Nm')
+                # Debitor Name
+                dbtr_name = transaction.find(f'.//{{{namespace}}}Dbtr//{{{namespace}}}Nm') if namespace else transaction.find('.//Dbtr//Nm')
                 if dbtr_name is not None:
                     data["Debitor"] = dbtr_name.text
 
                 extracted_data.append(data)
         return pd.DataFrame(extracted_data)
     except Exception as e:
+        st.error(f"Fehler bei der Verarbeitung: {e}")
         return pd.DataFrame()
 
 # --- APP START ---
-st.set_page_config(page_title="Glitzer Converter", page_icon="✨")
-apply_glitter_rain()
+st.set_page_config(page_title="XML Converter", page_icon="📄")
 
-st.title("✨ XML-Datenextraktion & Konvertierung ✨")
-# Dieser Text wird jetzt dunkel sein:
-st.write("Lade deine Dateien hoch und sieh zu, wie sie funkeln!") 
+st.title("XML-Datenextraktion & Konvertierung")
+st.write("Laden Sie Ihre XML-Dateien hoch, um sie in eine konsolidierte Excel-Liste umzuwandeln.")
 
-# Dieses Label wird jetzt dunkel sein:
-uploaded_files = st.file_uploader("Wähle XML-Dateien", accept_multiple_files=True, type=['xml'])
+uploaded_files = st.file_uploader("XML-Dateien auswählen", accept_multiple_files=True, type=['xml'])
 
 if uploaded_files:
     dfs = [extract_xml_data_to_df(f) for f in uploaded_files]
@@ -144,23 +63,22 @@ if uploaded_files:
         st.success("Dateien erfolgreich verarbeitet!")
         st.dataframe(combined_df, use_container_width=True)
         
-        # --- DATUM IM DATEINAMEN ---
-        # Zeitstempel für Zürich holen
+        # --- EXCEL EXPORT (IM SPEICHER) ---
         tz = pytz.timezone('Europe/Zurich')
         now = datetime.now(tz)
         datum_heute = now.strftime("%d.%m.%Y")
-        
         excel_name = f"XML_Export_{datum_heute}.xlsx"
         
-        # Datei erstellen
-        combined_df.to_excel(excel_name, index=False)
+        # BytesIO nutzen, um Datei im RAM zu halten
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            combined_df.to_excel(writer, index=False, sheet_name='Daten')
         
-        with open(excel_name, "rb") as f:
-            st.download_button(
-                label=f"{excel_name} herunterladen",
-                data=f,
-                file_name=excel_name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        st.download_button(
+            label="Excel-Datei herunterladen",
+            data=buffer.getvalue(),
+            file_name=excel_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
     elif combined_df is not None and combined_df.empty:
-         st.warning("Keine passenden Daten in den XML-Dateien gefunden.")
+        st.warning("Keine passenden Daten in den XML-Dateien gefunden.")
