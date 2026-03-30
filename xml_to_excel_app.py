@@ -89,8 +89,8 @@ def extract_xml_data_to_df(xml_file):
         return pd.DataFrame()
 
 # --- STREAMLIT UI ---
-st.set_page_config(page_title="Finanz-Konverter Pro", layout="wide")
-st.title("🏠 Bank-Export Professional (2-Spalten-Layout)")
+st.set_page_config(page_title="XML-Konverter", layout="wide")
+st.title("🏠 XML - Konverter für Rechnungen")
 
 files = st.file_uploader("XML-Dateien hochladen", accept_multiple_files=True, type=['xml'])
 
