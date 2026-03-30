@@ -71,7 +71,7 @@ def extract_xml_data_to_df(xml_file):
 st.set_page_config(page_title="XML Converter", page_icon="📊", layout="wide")
 
 st.title("📊 Professioneller XML Daten-Export")
-st.info("Dieses Tool konvertiert CAMT-Bankdateien (z.B. von UBS, Credit Suisse, ZKB) in eine übersichtliche Excel-Liste.")
+st.info("Dieses Tool konvertiert CAMT-Bankdateien in eine übersichtliche Excel-Liste.")
 
 uploaded_files = st.file_uploader("XML-Dateien hier hochladen", accept_multiple_files=True, type=['xml'])
 
