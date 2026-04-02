@@ -34,28 +34,42 @@ def extract_xml_data_to_df(xml_file):
             if transactions:
                 for tx in transactions:
 
-                    # --- PARTEIEN ---
-                    dbtr = tx.find('.//n:Dbtr/n:Nm', ns)
-                    ult_dbtr = tx.find('.//n:UltmtDbtr/n:Nm', ns)
-                    cdtr = tx.find('.//n:Cdtr/n:Nm', ns)
-                    ult_cdtr = tx.find('.//n:UltmtCdtr/n:Nm', ns)
+                    # --- HELPER: sichere Textsuche ---
+                    def find_text(paths):
+                        for p in paths:
+                            el = tx.find(p, ns)
+                            if el is not None and el.text:
+                                return el.text
+                        return None
 
-                    rltd_dbtr = tx.find('.//n:RltdPties/n:Dbtr/n:Nm', ns)
-                    rltd_cdtr = tx.find('.//n:RltdPties/n:Cdtr/n:Nm', ns)
+                    # --- PARTEIEN (FIXED mit Pty/Nm) ---
+                    dbtr = find_text([
+                        './/n:Dbtr/n:Nm',
+                        './/n:Dbtr/n:Pty/n:Nm',
+                        './/n:RltdPties/n:Dbtr/n:Pty/n:Nm',
+                        './/n:UltmtDbtr/n:Nm',
+                    ])
 
-                    initg = tx.find('.//n:RltdPties/n:InitgPty/n:Pty/n:Nm', ns)
+                    cdtr = find_text([
+                        './/n:Cdtr/n:Nm',
+                        './/n:Cdtr/n:Pty/n:Nm',
+                        './/n:RltdPties/n:Cdtr/n:Pty/n:Nm',
+                        './/n:UltmtCdtr/n:Nm',
+                    ])
+
+                    initg = find_text([
+                        './/n:RltdPties/n:InitgPty/n:Pty/n:Nm'
+                    ])
 
                     # --- PARTNER LOGIK ---
                     if is_credit:
-                        # Geld kommt rein → Debitor ist interessant
-                        name = next((x.text for x in [dbtr, ult_dbtr, rltd_dbtr] if x is not None and x.text), None)
+                        name = dbtr
                     else:
-                        # Geld geht raus → Kreditor ist interessant
-                        name = next((x.text for x in [cdtr, ult_cdtr, rltd_cdtr] if x is not None and x.text), None)
+                        name = cdtr
 
                     # Fallback
                     if not name:
-                        name = next((x.text for x in [dbtr, cdtr, initg] if x is not None and x.text), None)
+                        name = dbtr or cdtr or initg
 
                     # Letzter Fallback → Freitext
                     if not name:
@@ -70,14 +84,14 @@ def extract_xml_data_to_df(xml_file):
                     gutschrift = betrag if is_credit else 0.0
                     belastung = betrag if not is_credit else 0.0
 
-                    # --- ZUSATZINFO (VERBESSERT) ---
+                    # --- ZUSATZINFO ---
                     qr_zusatz = tx.find('.//n:RmtInf/n:Strd/n:AddtlRmtInf', ns)
                     tx_zusatz = tx.find('.//n:AddtlTxInf', ns)
 
                     zusatz_parts = []
 
-                    if initg is not None and initg.text:
-                        zusatz_parts.append(initg.text)
+                    if initg:
+                        zusatz_parts.append(initg)
 
                     if qr_zusatz is not None and qr_zusatz.text:
                         zusatz_parts.append(qr_zusatz.text)
